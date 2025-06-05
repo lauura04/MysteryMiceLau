@@ -1,0 +1,58 @@
+@font-face {
+    font-family: 'mousy';
+    src: url('assets/mousy.ttf') format('truetype');
+}
+
+body{
+    font-family: 'mousy', sans-serif;
+    background-color: #42240e;
+    font-size: 40px;
+    color: black;
+}
+
+h1{
+    text-align: center;
+
+}
+
+.rectangulo {
+    position: absolute;
+    top:50px;
+    left:550px;
+    width: 410px;
+    height: 100px;
+    background-color: #91542971;
+}
+
+#chat-container{
+    display:none;
+    position: absolute;
+    top: 390px;
+    left: 200px;
+    width: 260px;
+    background-color: rgba(0,0,0,0.7);
+    border: 1px solid #ccc;
+    color:white;
+    font-family: 'mousy', sans-serif;
+    padding: 10px;
+    z-index: 1000;
+
+}
+
+#chat-messages{
+    height: 180px;
+    overflow-y: scroll;
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 10px;
+}
+
+#chat-input{
+    width: 80%;
+    padding: 5px;
+}
+
+#chat-send{
+    width: 18%;
+    padding: 5px;
+    cursor: pointer;
+}

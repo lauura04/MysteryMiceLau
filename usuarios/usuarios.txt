@@ -1,0 +1,3 @@
+ar,ar,0
+ao,ar,0
+uu,uu,0
