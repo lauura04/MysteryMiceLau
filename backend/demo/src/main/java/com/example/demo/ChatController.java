@@ -19,6 +19,7 @@ public class ChatController {
     private final List<ChatMessage> messages = new ArrayList<>();
     private final AtomicInteger lastId = new AtomicInteger(0);
     private final ConcurrentHashMap<Integer, Long> activeUsers = new ConcurrentHashMap<>(); //otro mapa igual para los UserName
+    private final AtomicInteger userIdCounter = new AtomicInteger(0);
 
 
     @GetMapping
@@ -53,14 +54,10 @@ public class ChatController {
     }
 
     @PostMapping("/connect")
-    public ResponseEntity<?> connectClient(@RequestParam int userId) {
-        if (LoginUtils.usuarioExiste(userId)) {
-            activeUsers.put(userId, System.currentTimeMillis());
-            return ResponseEntity.ok(userId);
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("success", false, "message", "Usuario no encontrado"));
-        }
+    public int connectClient() {
+        int newUserId = userIdCounter.getAndIncrement();
+        activeUsers.put(newUserId, System.currentTimeMillis());
+        return newUserId;
     }
 
     @PostMapping("/disconnect")

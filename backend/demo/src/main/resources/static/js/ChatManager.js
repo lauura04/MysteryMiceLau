@@ -7,7 +7,7 @@ export default class ChatManager {
         this.userCount = $('#users-count');
 
         this.lastMessageId = 0;
-        this.userId = localStorage.getItem('chatUserId') || null;
+        this.userId = localStorage.getItem('chatUserId');
         
         // Listeners
         this.chatSend.on('click', () => this.sendMessage());
@@ -47,7 +47,9 @@ export default class ChatManager {
     }
 
     fetchConnectedUsers() {
-        $.get("/api/chat/activeClients")
+        if(!this.userId) return;
+
+        $.get("/api/chat/activeClients", {userId: this.userId})
             .done((data) => {
                 this.userCount.text(`Usuarios conectados: ${data}`);
             })
@@ -55,6 +57,7 @@ export default class ChatManager {
     }
 
     connectUser() {
+        
        $.post("/api/chat/connect")
         .done((data)=>{
             this.userId = data; // guardar userId asignado por servidor
@@ -85,7 +88,7 @@ export default class ChatManager {
 
     sendHeartbeat(){
         if(this.userId){
-            $.post("/api/char/heartbeat", {userId: this.userId})
+            $.post("/api/chat/heartbeat", {userId: this.userId})
             .fail((error)=>console.error('Error en el heartbeat:', error));
         }
     }
