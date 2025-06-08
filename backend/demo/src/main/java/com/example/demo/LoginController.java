@@ -9,6 +9,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.Map;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
 @RestController
 @RequestMapping("/usuario")
 public class LoginController{
@@ -56,41 +59,46 @@ public class LoginController{
         }
     }
 
-    //Carga de usuario
-    /*@PostMapping("/login")
-    public ResponseEntity<?> loginUsuario(@RequestBody Usuario usuario) {
-        Optional<Usuario> usuarioEncontrado = userRepository.findByUser(usuario.getUser());
+    @PostMapping("/login")
+    public ResponseEntity<?> loginUser(@RequestBody Usuario user) {
+        String nombreUsuario = user.getId();
+        String password = user.getPassword();
 
-        if (usuarioEncontrado.isPresent() && usuarioEncontrado.get().getPassword().equals(usuario.getPassword())) {
-            return ResponseEntity.ok().body(Map.of("success", true, "message", "Inicio con exito", "userId", usuarioEncontrado.get().getUserId()));
-        } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("success", false, "message", "Credenciales incorrectas"));
-        }
-    }
+        File archivoGeneral = new File("usuarios/usuarios.txt");
 
-    //Obtener usuario por id
-    @GetMapping("/{id}")
-    public ResponseEntity<?> obtenerUsuario(@PathVariable Integer id) {
-        Optional<Usuario> usuario = userRepository.findById(id);
-        if (usuario.isPresent()) {
-            return ResponseEntity.ok(usuario.get());
-        } else {
+        if(!archivoGeneral.exists()){
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("success", false, "message", "Usuario no encontrado"));
+                .body(Map.of("success", false, "message", "No hay usuarios registrados"));
         }
-    }
 
-    //Eliminar usuario
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> eliminarUsuario(@PathVariable Integer id) {
-        if (userRepository.existsById(id)) {
-            userRepository.deleteById(id);
-            return ResponseEntity.ok().body(Map.of("success", true, "message", "Usuario eliminado correctamente"));
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("success", false, "message", "Usuario no encontrado"));
+        try(BufferedReader reader = new BufferedReader(new FileReader(archivoGeneral))){
+            String linea;
+            while((linea=reader.readLine())!=null){
+                String[] partes = linea.split(",");
+                if(partes.length>=2){
+                    String usuarioGuardado = partes[0];
+                    String passwordGuardada = partes[1];
+                    if(usuarioGuardado.equals(nombreUsuario)){
+                        if(passwordGuardada.equals(password)){
+                            return ResponseEntity.ok()
+                                .body(Map.of("success", true, "message", "Inicio de sesión existoso"));
+                        }
+
+                        else{
+                            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                                .body(Map.of("success", false, "message", "Contraseña incorrecta"));
+                        }
+                    }
+                }
+            }
+        } catch(Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("succes", false, "message", "Error leyendo el archivo"));
         }
-    }*/
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("success", false, "message", "Usuario no encontrado"));
+    }
+    
 
 }

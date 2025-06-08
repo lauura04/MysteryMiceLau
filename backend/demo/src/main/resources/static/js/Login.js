@@ -76,7 +76,7 @@ class LoginScene extends Phaser.Scene {
             align: 'center'
         }).setInteractive()
             .on('pointerdown', () => {
-                this.IniciarSesion(this.nombre.value, this.contra.value);
+                this.login(this.nombre.value, this.contra.value);
             });
 
         //Botón para ir al registrarse
@@ -93,17 +93,19 @@ class LoginScene extends Phaser.Scene {
 
     // Función para iniciar sesión
     login(user, password) {
-        fetch("http://localhost:8080/usuarios/login", {
+        fetch("http://localhost:8080/usuario/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                user, 
-                password })
+                id: user, 
+                password: password })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 alert("Inicio de sesión exitoso");
+                if (this.nombre) this.nombre.remove();
+                if (this.contra) this.contra.remove();
                 this.scene.stop("LoginScene");
                 this.scene.start("IntroScene");  // Vamos a la escena de inicio de juego
                 this.sound.play("boton");
