@@ -8,6 +8,13 @@ export default class ChatManager {
 
         this.lastMessageId = 0;
         this.userId = localStorage.getItem('chatUserId');
+        this.userName = localStorage.getItem('userName');
+
+        if(!this.userId){
+            this.connectUser();
+        } else {
+            this.startHeartbeat();
+        }
         
         // Listeners
         this.chatSend.on('click', () => this.sendMessage());
@@ -15,29 +22,45 @@ export default class ChatManager {
             if (e.key === 'Enter') this.sendMessage();
         });
 
-        this.connectUser();
+
         this.startFetchingMessages();
         this.startFetchingUsers();
     }
 
     sendMessage() {
-        const message = this.chatInput.val().trim();
-        if (message) {
-            $.post("/api/chat", { message: message, userId: this.userId })
-                .done(() => {
-                    this.chatInput.val('');
-                    this.fetchMessages();
-                })
-                .fail((error) => console.error('Error al enviar el mensaje:', error));
+        if (!this.userName) {
+            alert("No se encontró nombre de usuario. Inicia sesión primero.");
+            return;
         }
+
+        const message = this.chatInput.val().trim();
+        if (!message) return;
+
+        $.ajax({
+            url: "/api/chat",
+            type: "POST",
+            data: {
+                message: message,
+                userName: this.userName
+            },
+            success: () => {
+                this.chatInput.val('');
+                this.fetchMessages();
+            },
+            error: (error) => {
+                console.error("Error enviando mensaje:", error.responseJSON || error);
+                alert("Error al enviar mensaje. Intenta nuevamente.");
+            }
+        });
     }
+
 
     fetchMessages() {
         $.get("/api/chat", { since: this.lastMessageId })
             .done((data) => {
                 if (data.messages && data.messages.length > 0) {
                     data.messages.forEach((msg) => {
-                        this.chatMessages.append(`<div>${msg.id}:${msg}</div>`);
+                        this.chatMessages.append(`<div>${msg.userName}:${msg.text}</div>`);
                     });
                     this.chatMessages.scrollTop(this.chatMessages.prop('scrollHeight'));
                     this.lastMessageId = data.timestamp;
@@ -57,16 +80,20 @@ export default class ChatManager {
     }
 
     connectUser() {
-        
-       $.post("/api/chat/connect")
-        .done((data)=>{
-            this.userId = data; // guardar userId asignado por servidor
-            localStorage.setItem('chatUserId', this.userId);
-            console.log(`Usuario conectado con ID: ${this.userId}`);
-            this.startHeartbeat(); // iniciar heartbeat
-        })
-        .fail((error)=>{
-            console.error('Error al conectar usuario: ', error);
+        $.ajax({
+            url: "/api/chat/connect",
+            type: "POST",
+            contentType: "application/json",
+            success: (data) => {
+                this.userId = data;
+                localStorage.setItem('chatUserId', this.userId);
+                console.log(`Conectado con ID: ${this.userId}`);
+                this.startHeartbeat();
+            },
+            error: (error) => {
+                console.error("Error de conexión:", error.responseJSON || error);
+                alert("Error al conectar al chat. Recarga la página.");
+            }
         });
     }
 

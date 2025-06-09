@@ -24,13 +24,13 @@ public class ChatController {
 
     @GetMapping
     public ChatResponse getMessages(@RequestParam(defaultValue = "0") int since) {
-        List<String> newMessages = new ArrayList<>();
+        List<ChatMessage> newMessages = new ArrayList<>();
         int latestId = since;
 
         synchronized (messages) {
             for (ChatMessage msg : messages) {
                 if (msg.getId() > since) {
-                    newMessages.add(msg.getText());
+                    newMessages.add(msg);
                     latestId = msg.getId();
                 }
             }
@@ -44,20 +44,21 @@ public class ChatController {
     }
 
     @PostMapping
-    public void postMessage(@RequestParam String message, @RequestParam int userId) {
+    public ResponseEntity<String> postMessage(@RequestParam("message") String message, @RequestParam("userName") String userName) {
         synchronized (messages) {
-            messages.add(new ChatMessage(lastId.incrementAndGet(), userId + ": " + message));
+            messages.add(new ChatMessage(lastId.incrementAndGet(),  message, userName));
             if (messages.size() > 50) {
                 messages.remove(0); // Almacenar los últimos 50 mensajes
             }
         }
+        return ResponseEntity.ok("MensajeRecibido");
     }
 
     @PostMapping("/connect")
-    public int connectClient() {
+    public ResponseEntity<Integer> connectClient() {
         int newUserId = userIdCounter.getAndIncrement();
         activeUsers.put(newUserId, System.currentTimeMillis());
-        return newUserId;
+        return ResponseEntity.ok(newUserId);
     }
 
     @PostMapping("/disconnect")
@@ -85,15 +86,15 @@ public class ChatController {
     }
 
     public static class ChatResponse {
-        private final List<String> messages;
+        private final List<ChatMessage> messages;
         private final int timestamp;
 
-        public ChatResponse(List<String> messages, int timestamp) {
+        public ChatResponse(List<ChatMessage> messages, int timestamp) {
             this.messages = messages;
             this.timestamp = timestamp;
         }
 
-        public List<String> getMessages() {
+        public List<ChatMessage> getMessages() {
             return messages;
         }
 

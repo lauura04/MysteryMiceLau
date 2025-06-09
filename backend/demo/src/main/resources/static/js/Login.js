@@ -93,17 +93,16 @@ class LoginScene extends Phaser.Scene {
 
     // Función para iniciar sesión
     login(user, password) {
-        fetch("http://localhost:8080/usuario/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                id: user, 
-                password: password })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert("Inicio de sesión exitoso");
+    fetch("http://localhost:8080/usuario/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: user, password: password })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            localStorage.setItem('userName', user); // Guarda el nombre
+            window.chatManager = new ChatManager();
                 if (this.nombre) this.nombre.remove();
                 if (this.contra) this.contra.remove();
                 this.scene.stop("LoginScene");
@@ -130,6 +129,7 @@ class LoginScene extends Phaser.Scene {
         .then(async response => {
         const data = await response.json().catch(() => ({})); 
         if (response.ok && data.success) {
+            localStorage.setItem('userName', nombre);
             alert(data.message || "Usuario registrado correctamente");
             if (this.nombre) this.nombre.remove();
             if (this.contra) this.contra.remove();
