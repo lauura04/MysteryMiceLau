@@ -12,6 +12,9 @@ fdf,d,0
 v,v,0
 sfs,s,0
 asafs,gf,0
+<<<<<<< Updated upstream
 sasas,s,0
 asfdasf,s,0
 sas,s,0
+=======
+>>>>>>> Stashed changes
