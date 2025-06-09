@@ -10,7 +10,6 @@ export default class ChatManager {
         this.userId = localStorage.getItem('chatUserId');
         this.userName = localStorage.getItem('userName');
 
-
         if (this.userName) {
             this.connectUser();
         } else {
@@ -102,9 +101,6 @@ export default class ChatManager {
             $.post("/api/chat/disconnect", { userId: this.userId })
                 .done((updatedCount) => {
                     this.userCount.text(`Usuarios conectados: ${updatedCount}`);
-                    localStorage.removeItem('chatUserId');
-                    localStorage.removeItem('userName');
-                    localStorage.removeItem('usuarioNombre');
                 })
                 .fail((error) => console.error('Error al desconectar el usuario: ', error));
         }

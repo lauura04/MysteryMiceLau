@@ -107,9 +107,8 @@ class LoginScene extends Phaser.Scene {
             alert("Inicio de sesión exitoso");
 
             // Guardar el nombre de usuario en localStorage para usar en el chat
-            localStorage.setItem('usuarioNombre', user);
-            localStorage.setItem('userName', user);
-            
+            sessionStorage.setItem('usuarioNombre', user);
+
             if (this.nombre) this.nombre.remove();
             if (this.contra) this.contra.remove();
 
