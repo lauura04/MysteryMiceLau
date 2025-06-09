@@ -10,12 +10,12 @@ export default class ChatManager {
         this.userId = localStorage.getItem('chatUserId');
         this.userName = localStorage.getItem('userName');
 
-        if(!this.userId){
+        if (this.userNamed) {
             this.connectUser();
         } else {
-            this.startHeartbeat();
+            console.warn("Usuario no logueado. No se inicializa el chat");
         }
-        
+
         // Listeners
         this.chatSend.on('click', () => this.sendMessage());
         this.chatInput.on('keypress', (e) => {
@@ -28,8 +28,8 @@ export default class ChatManager {
     }
 
     sendMessage() {
-        if (!this.userName) {
-            alert("No se encontró nombre de usuario. Inicia sesión primero.");
+        if (!this.userId) {
+            alert("No se encontró el ID del usuario. Inicia sesión primero.");
             return;
         }
 
@@ -41,7 +41,7 @@ export default class ChatManager {
             type: "POST",
             data: {
                 message: message,
-                userName: this.userName
+                userId: this.userId
             },
             success: () => {
                 this.chatInput.val('');
@@ -53,6 +53,7 @@ export default class ChatManager {
             }
         });
     }
+
 
 
     fetchMessages() {
@@ -70,53 +71,51 @@ export default class ChatManager {
     }
 
     fetchConnectedUsers() {
-        if(!this.userId) return;
+        if (!this.userId) return;
 
-        $.get("/api/chat/activeClients", {userId: this.userId})
+        $.get("/api/chat/activeClients", { userId: this.userId })
             .done((data) => {
-                this.userCount.text(`Usuarios conectados: ${data}`);
+                $('#users-count').text(`Usuarios conectados: ${data}`);
             })
             .fail((error) => console.error('Error al obtener usuarios conectados:', error));
     }
 
     connectUser() {
-        $.ajax({
-            url: "/api/chat/connect",
-            type: "POST",
-            contentType: "application/json",
-            success: (data) => {
-                this.userId = data;
+        $.post(`/api/chat/connect?nombre=${encodeURIComponent(this.userName)}`)
+            .done((data) => {
+                this.userId = data; // guardar userId asignado por servidor
                 localStorage.setItem('chatUserId', this.userId);
-                console.log(`Conectado con ID: ${this.userId}`);
-                this.startHeartbeat();
-            },
-            error: (error) => {
-                console.error("Error de conexión:", error.responseJSON || error);
-                alert("Error al conectar al chat. Recarga la página.");
-            }
-        });
+                console.log(`Usuario conectado con nombre: ${this.userName} y ID: ${this.userId}`);
+
+                this.fetchConnectedUsers();  // <-- Actualizamos el contador de usuarios
+                this.startHeartbeat();       // iniciar heartbeat
+            })
+
+            .fail((error) => {
+                console.error('Error al conectar usuario: ', error);
+            });
     }
 
     disconnectUser() {
-        if(this.userId){
-            $.post("/api/chat/disconnect", {userId: this.userId})
-                .done((updatedCount)=>{
+        if (this.userId) {
+            $.post("/api/chat/disconnect", { userId: this.userId })
+                .done((updatedCount) => {
                     this.userCount.text(`Usuarios conectados: ${updatedCount}`);
                 })
-                .fail((error)=> console.error('Error al desconectar el usuario: ', error));
+                .fail((error) => console.error('Error al desconectar el usuario: ', error));
         }
     }
 
-    startHeartbeat(){
-        setInterval(()=>{
+    startHeartbeat() {
+        setInterval(() => {
             this.sendHeartbeat();
         }, 3000); // cada 3 segundos
     }
 
-    sendHeartbeat(){
-        if(this.userId){
-            $.post("/api/chat/heartbeat", {userId: this.userId})
-            .fail((error)=>console.error('Error en el heartbeat:', error));
+    sendHeartbeat() {
+        if (this.userId) {
+            $.post("/api/chat/heartbeat", { userId: this.userId })
+                .fail((error) => console.error('Error en el heartbeat:', error));
         }
     }
 
@@ -130,10 +129,14 @@ export default class ChatManager {
 }
 
 $(document).ready(() => {
-    const chatManager = new ChatManager();
+    const nombre = localStorage.getItem("usuarioNombre");
 
-    $(window).on('beforeunload', ()=>{
-        chatManager.disconnectUser();
-    });
+    if (nombre && nombre !== "Anónimo") {
+        const chatManager = new ChatManager();
+        $(window).on('beforeunload', () => {
+            chatManager.disconnectUser();
+        });
+    } else {
+        console.warn("Usuario no logueado. No se inicializa el chat.");
+    }
 });
-

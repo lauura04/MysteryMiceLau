@@ -96,24 +96,34 @@ class LoginScene extends Phaser.Scene {
     fetch("http://localhost:8080/usuario/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: user, password: password })
+        body: JSON.stringify({
+            id: user, 
+            password: password 
+        })
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            localStorage.setItem('userName', user); // Guarda el nombre
-            window.chatManager = new ChatManager();
-                if (this.nombre) this.nombre.remove();
-                if (this.contra) this.contra.remove();
-                this.scene.stop("LoginScene");
-                this.scene.start("IntroScene");  // Vamos a la escena de inicio de juego
-                this.sound.play("boton");
-            } else {
-                alert("Error: " + data.message);
-            }
-        })
-        .catch(error => console.error("Error en el login:", error));
-    }
+            alert("Inicio de sesión exitoso");
+
+            // Guardar el nombre de usuario en localStorage para usar en el chat
+            sessionStorage.setItem('usuarioNombre', user);
+
+            if (this.nombre) this.nombre.remove();
+            if (this.contra) this.contra.remove();
+
+            this.scene.stop("LoginScene");
+            this.scene.start("IntroScene");  // Vamos a la escena de inicio de juego
+            this.sound.play("boton");
+
+            
+        } else {
+            alert("Error: " + data.message);
+        }
+    })
+    .catch(error => console.error("Error en el login:", error));
+}
+
 
     // Función para registrar usuario
     registrar(nombre, contra) {
@@ -131,6 +141,7 @@ class LoginScene extends Phaser.Scene {
         if (response.ok && data.success) {
             localStorage.setItem('userName', nombre);
             alert(data.message || "Usuario registrado correctamente");
+            localStorage.setItem("usuarioNombre", nombre);
             if (this.nombre) this.nombre.remove();
             if (this.contra) this.contra.remove();
             this.scene.stop("LoginScene");

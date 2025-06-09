@@ -9,29 +9,22 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.Map;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 
 @RestController
 @RequestMapping("/usuario")
-public class LoginController{
-    /*private final UserRepository userRepository;
+public class LoginController {
 
-    public LoginController(UserRepository userRepository){
-        this.userRepository=userRepository;
-    }*/
-
-    //Registrar Usuario
+    // Registrar Usuario
     @PostMapping("/registro")
     public ResponseEntity<?> registrarUsuario(@RequestBody Usuario usuario){
-        try{
+        try {
             String nombreUsuario = usuario.getId();
             String password = usuario.getPassword();
-            File archivoGeneral =new File ("usuarios/usuarios.txt");
+            File archivoGeneral = new File("usuarios/usuarios.txt");
             File carpeta = new File("usuarios");
 
-            if(!carpeta.exists()) carpeta.mkdirs(); //Sino existe la carpeta la crea
-            
+            if (!carpeta.exists()) carpeta.mkdirs(); // Si no existe la carpeta, la crea
+
             // Verificar si el usuario ya existe
             if (archivoGeneral.exists()) {
                 try (BufferedReader reader = new BufferedReader(new FileReader(archivoGeneral))) {
@@ -45,9 +38,10 @@ public class LoginController{
                     }
                 }
             }
-            //Guarda la información en uno general
-            try(FileWriter write =new FileWriter(archivoGeneral, true)){
-                write.write(nombreUsuario+","+password+",0\n");
+
+            // Guarda la información en uno general
+            try (FileWriter write = new FileWriter(archivoGeneral, true)) {
+                write.write(nombreUsuario + "," + password + ",0\n");
             }
 
             return ResponseEntity.status(HttpStatus.CREATED)
@@ -66,39 +60,35 @@ public class LoginController{
 
         File archivoGeneral = new File("usuarios/usuarios.txt");
 
-        if(!archivoGeneral.exists()){
+        if (!archivoGeneral.exists()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("success", false, "message", "No hay usuarios registrados"));
         }
 
-        try(BufferedReader reader = new BufferedReader(new FileReader(archivoGeneral))){
+        try (BufferedReader reader = new BufferedReader(new FileReader(archivoGeneral))) {
             String linea;
-            while((linea=reader.readLine())!=null){
+            while ((linea = reader.readLine()) != null) {
                 String[] partes = linea.split(",");
-                if(partes.length>=2){
+                if (partes.length >= 2) {
                     String usuarioGuardado = partes[0];
                     String passwordGuardada = partes[1];
-                    if(usuarioGuardado.equals(nombreUsuario)){
-                        if(passwordGuardada.equals(password)){
+                    if (usuarioGuardado.equals(nombreUsuario)) {
+                        if (passwordGuardada.equals(password)) {
                             return ResponseEntity.ok()
                                 .body(Map.of("success", true, "message", "Inicio de sesión existoso"));
-                        }
-
-                        else{
+                        } else {
                             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                                 .body(Map.of("success", false, "message", "Contraseña incorrecta"));
                         }
                     }
                 }
             }
-        } catch(Exception e){
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("succes", false, "message", "Error leyendo el archivo"));
+                .body(Map.of("success", false, "message", "Error leyendo el archivo"));
         }
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
             .body(Map.of("success", false, "message", "Usuario no encontrado"));
     }
-    
-
 }

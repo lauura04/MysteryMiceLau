@@ -4,7 +4,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
+import org.apache.catalina.util.CharsetMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,7 +19,9 @@ public class ChatController {
     private final List<ChatMessage> messages = new ArrayList<>();
     private final AtomicInteger lastId = new AtomicInteger(0);
     private final ConcurrentHashMap<Integer, Long> activeUsers = new ConcurrentHashMap<>(); //otro mapa igual para los UserName
-    private final AtomicInteger userIdCounter = new AtomicInteger(0);
+    private final AtomicInteger userIdCounter = new AtomicInteger(1);
+    private final ConcurrentHashMap<Integer, String> userNames = new ConcurrentHashMap<>();
+
 
 
     @GetMapping
@@ -44,26 +46,29 @@ public class ChatController {
     }
 
     @PostMapping
-    public ResponseEntity<String> postMessage(@RequestParam("message") String message, @RequestParam("userName") String userName) {
+    public void postMessage(@RequestParam String message, @RequestParam int userId) {
+        String userName = userNames.getOrDefault(userId, "Usuario");
         synchronized (messages) {
-            messages.add(new ChatMessage(lastId.incrementAndGet(),  message, userName));
+            messages.add(new ChatMessage(lastId.incrementAndGet(), userId, userName, message));
             if (messages.size() > 50) {
                 messages.remove(0); // Almacenar los últimos 50 mensajes
             }
         }
-        return ResponseEntity.ok("MensajeRecibido");
+        
     }
 
     @PostMapping("/connect")
-    public ResponseEntity<Integer> connectClient() {
+    public int connectClient(@RequestParam String nombre) {
         int newUserId = userIdCounter.getAndIncrement();
         activeUsers.put(newUserId, System.currentTimeMillis());
-        return ResponseEntity.ok(newUserId);
+        userNames.put(newUserId, nombre);
+        return newUserId;
     }
 
     @PostMapping("/disconnect")
     public int disconnectClient(@RequestParam int userId) {
         activeUsers.remove(userId);
+        userNames.remove(userId);
         return activeUsers.size();
     }
 
