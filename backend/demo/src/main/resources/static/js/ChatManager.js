@@ -10,7 +10,7 @@ export default class ChatManager {
         this.userId = localStorage.getItem('chatUserId');
         this.userName = localStorage.getItem('userName');
 
-        if (this.userNamed) {
+        if (this.userName) {
             this.connectUser();
         } else {
             console.warn("Usuario no logueado. No se inicializa el chat");
