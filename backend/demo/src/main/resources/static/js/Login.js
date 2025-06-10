@@ -93,36 +93,57 @@ class LoginScene extends Phaser.Scene {
 
     // Función para iniciar sesión
     login(nombre, password) {
-    fetch('/usuario/login', {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            id: nombre, 
-            password: password 
+        fetch('/usuario/login', {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                id: nombre, 
+                password: password 
+            })
         })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert("Inicio de sesión exitoso");
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert("Inicio de sesión exitoso");
 
-            // Guardar el nombre de usuario en localStorage para usar en el chat
-            sessionStorage.setItem('usuarioNombre', nombre);
+                localStorage.setItem('usuarioNombre', nombre); // Guardar nombre de usuario
 
-            if (this.nombre) this.nombre.remove();
-            if (this.contra) this.contra.remove();
+                if (this.nombre) this.nombre.remove();
+                if (this.contra) this.contra.remove();
 
-            this.scene.stop("LoginScene");
-            this.scene.start("IntroScene");  // Vamos a la escena de inicio de juego
-            this.sound.play("boton");
+                // Inicializar ChatManager aquí después de un login exitoso
+                // Importante: asegúrate de que ChatManager.js esté cargado como type="module"
+                if (!window.chatManagerInstance) {
+                    import('./ChatManager.js').then(({ default: ChatManager }) => {
+                        window.chatManagerInstance = new ChatManager();
+                        // Adjuntar el listener beforeunload si no se ha hecho ya
+                        $(window).on('beforeunload', () => {
+                            if (window.chatManagerInstance) {
+                                window.chatManagerInstance.disconnectUser();
+                            }
+                        });
+                    });
+                } else {
+                    // Si ya estaba instanciado pero sin usuario (ej. en una nueva pestaña)
+                    // necesitamos decirle que un usuario ha iniciado sesión.
+                    window.chatManagerInstance.userName = nombre;
+                    window.chatManagerInstance.connectUser(); // Forzar la reconexión con el nuevo usuario
+                    window.chatManagerInstance.startFetchingMessages();
+                    window.chatManagerInstance.startFetchingUsers();
+                    $('#chat-input').prop('disabled', false); // Habilitar chat input
+                    $('#chat-send').prop('disabled', false); // Habilitar botón de enviar chat
+                }
 
-            
-        } else {
-            alert("Error: " + data.message);
-        }
-    })
-    .catch(error => console.error("Error en el login:", error));
-}
+                this.scene.stop("LoginScene");
+                this.scene.start("IntroScene"); // Ir a la escena de introducción del juego
+                this.sound.play("boton");
+                
+            } else {
+                alert("Error: " + data.message);
+            }
+        })
+        .catch(error => console.error("Error en el login:", error));
+    }
 
 
     // Función para registrar usuario
@@ -139,11 +160,32 @@ class LoginScene extends Phaser.Scene {
         .then(async response => {
         const data = await response.json().catch(() => ({})); 
         if (response.ok && data.success) {
-            localStorage.setItem('userName', nombre);
+            localStorage.setItem('usuarioNombre', nombre);
             alert(data.message || "Usuario registrado correctamente");
-            localStorage.setItem("usuarioNombre", nombre);
+            
             if (this.nombre) this.nombre.remove();
             if (this.contra) this.contra.remove();
+
+            // Inicializar ChatManager aquí después de un registro exitoso
+            // Importante: asegúrate de que ChatManager.js esté cargado como type="module"
+            if (!window.chatManagerInstance) {
+                import('./ChatManager.js').then(({ default: ChatManager }) => {
+                    window.chatManagerInstance = new ChatManager();
+                    $(window).on('beforeunload', () => {
+                        if (window.chatManagerInstance) {
+                            window.chatManagerInstance.disconnectUser();
+                        }
+                    });
+                });
+            } else {
+                 window.chatManagerInstance.userName = nombre;
+                window.chatManagerInstance.connectUser();
+                window.chatManagerInstance.startFetchingMessages();
+                window.chatManagerInstance.startFetchingUsers();
+                 $('#chat-input').prop('disabled', false); // Habilitar chat input
+                $('#chat-send').prop('disabled', false); // Habilitar botón de enviar chat
+            }
+
             this.scene.stop("LoginScene");
             this.scene.start("IntroScene");
             this.sound.play("boton");

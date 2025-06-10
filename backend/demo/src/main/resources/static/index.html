@@ -28,7 +28,6 @@
     
     <h1>Mystery Mice</h1>
       
-    <!-- Contenedor para el canvas -->
     <div id="game-canvas" style="position: relative"></div>
     <div id="chat-container">
         <div id="users-count">Usuarios conectados: 0</div>
@@ -36,6 +35,8 @@
         <input type="text" id="chat-input" placeholder="Escribe aquí tu mensaje" />
         <button id="chat-send">Enviar</button>
     </div>
+
+    <div id="connection-status"></div>
     
     <script type="module">
         // Configuración del juego
@@ -62,6 +63,32 @@
             scene: [LoginScene,IntroScene, GameScene, ControlScene, PreviewScene, TutorialScene, PauseScene, CreditScene, DialogueScene, EndScene, LoseScene],
         };
         const game = new Phaser.Game(config);
+        
+        // Variable global para mantener la instancia de chatManager
+        window.chatManagerInstance = null;
+
+        $(document).ready(() => {
+            const nombre = localStorage.getItem("usuarioNombre");
+
+            // Solo inicializar ChatManager si un usuario ya está logueado al cargar la página.
+            // De lo contrario, se inicializará desde LoginScene después de un inicio de sesión exitoso.
+            if (nombre && nombre !== "Anónimo") {
+                window.chatManagerInstance = new ChatManager();
+                $(window).on('beforeunload', () => {
+                    if (window.chatManagerInstance) {
+                        window.chatManagerInstance.disconnectUser();
+                    }
+                });
+            } else {
+                // Deshabilitar los elementos del chat si no hay usuario logueado inicialmente
+                $('#chat-input').prop('disabled', true);
+                $('#chat-send').prop('disabled', true);
+                $('#connection-status').text('No has iniciado sesión. El chat no está disponible.').css({
+                    'background-color': '#f44336',
+                    'color': 'white'
+                });
+            }
+        });
         
     </script>
     
