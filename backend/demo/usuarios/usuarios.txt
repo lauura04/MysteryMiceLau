@@ -22,3 +22,5 @@ asdas,a,0
 saf,s,0
 b,b,0
 e,e,0
+m,m,0
+xczx,x,0

@@ -27,7 +27,7 @@ class LoginScene extends Phaser.Scene {
             this.music = this.sound.add("musicaFondo", { loop: true, volume: 0.5 });
             this.music.play();
             this.registry.set("musicaFondo", this.music);
-        } else {//Si estamos en otra escena y volvemos no se vuelve a poner la música que ya estaba, se deja como está
+        } else {
             this.music = this.sound.get('musicaFondo');
         }
 
@@ -124,11 +124,11 @@ class LoginScene extends Phaser.Scene {
                         });
                     });
                 } else {
-                    // Si ya estaba instanciado pero sin usuario (ej. en una nueva pestaña)
+                    // Si ya estaba instanciado pero sin usuario (ej. en una nueva pestaña o como anónimo)
                     // necesitamos decirle que un usuario ha iniciado sesión.
-                    window.chatManagerInstance.userName = nombre;
-                    window.chatManagerInstance.connectUser(); // Forzar la reconexión con el nuevo usuario
-                    window.chatManagerInstance.startFetchingMessages();
+                    window.chatManagerInstance.userName = nombre; // Actualiza el nombre de usuario
+                    window.chatManagerInstance.connectUser(); // Fuerza la conexión con el nuevo usuario
+                    window.chatManagerInstance.startFetchingMessages(); // Asegura que los fetches se reinicien
                     window.chatManagerInstance.startFetchingUsers();
                     $('#chat-input').prop('disabled', false); // Habilitar chat input
                     $('#chat-send').prop('disabled', false); // Habilitar botón de enviar chat

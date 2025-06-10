@@ -15,13 +15,17 @@ export default class ChatManager {
         this.isConnected = false;
         this.reconnectTimeout = null; // Para almacenar el timeout de los intentos de reconexión
 
-        if (this.userName) {
-            this.connectUser(); // Intentar conectar al usuario al iniciar
+        // Solo intentar conectar si hay un nombre de usuario válido en localStorage al cargar la página
+        if (this.userName && this.userName !== "Anónimo") {
+            this.connectUser(); 
             this.startFetchingMessages();
             this.startFetchingUsers();
+            this.chatInput.prop('disabled', false); // Habilitar el input y el botón
+            this.chatSend.prop('disabled', false);
         } else {
-            console.warn("Usuario no logueado. No se inicializa el chat");
-            this.setConnectionMessage(false, "No has iniciado sesión. El chat no está disponible."); // Informar al usuario
+            console.warn("Usuario no logueado o anónimo. Chat inactivo.");
+            // Al cargar sin loguearse, solo muestra el estado en el div, no alerta.
+            this.setConnectionMessage(false, "No has iniciado sesión. El chat no está disponible."); 
             this.chatInput.prop('disabled', true); // Deshabilitar el input y el botón
             this.chatSend.prop('disabled', true);
         }
@@ -33,8 +37,16 @@ export default class ChatManager {
         });
     }
 
+    /**
+     * Establece el mensaje y el estado visual de la conexión.
+     * Muestra un alert solo si el estado cambia a desconectado.
+     * @param {boolean} isConnected - True si está conectado, false si no.
+     * @param {string} [message=''] - Mensaje opcional para el estado de conexión.
+     */
     setConnectionMessage(isConnected, message = '') {
+        const wasConnected = this.isConnected; 
         this.isConnected = isConnected;
+
         if (isConnected) {
             this.connectionStatus.text('Conectado').css({
                 'background-color': '#4CAF50',
@@ -42,44 +54,61 @@ export default class ChatManager {
             });
             clearTimeout(this.reconnectTimeout); // Limpiar cualquier intento de reconexión pendiente
             this.reconnectTimeout = null; // Resetear la variable del timeout
+            // No alert aquí al conectar
         } else {
-            this.connectionStatus.text(message || 'Conexión perdida. Intentando reconectar...').css({
+            // El mensaje de la barra siempre es "Conexión perdida. Reintentando..."
+            this.connectionStatus.text('Conexión perdida. Reintentando...').css({
                 'background-color': '#f44336',
                 'color': 'white'
             });
-            // Iniciar intentos de reconexión si no se están realizando ya
-            if (this.userName && !this.reconnectTimeout) {
+            // ALERTA solo si el estado cambió de conectado a desconectado
+            // o si es un mensaje de "conexión perdida" inicial al no estar logueado
+            if (wasConnected || (message && (message.includes("Conexión perdida") || message.includes("No se pudo conectar"))) ) { 
+                 alert(message || 'Conexión perdida. Reintentando...'); 
+            }
+            // Iniciar intentos de reconexión si no se están realizando ya y hay un nombre de usuario real
+            if (this.userName && this.userName !== "Anónimo" && !this.reconnectTimeout) {
                 this.reconnectTimeout = setTimeout(() => this.tryReconnect(), 5000);
             }
         }
     }
 
+    /**
+     * Intenta reconectar el usuario al chat.
+     */
     tryReconnect() {
-        if (!this.isConnected && this.userName) {
+        // Solo intentar reconectar si el chat no está conectado y hay un nombre de usuario válido
+        if (!this.isConnected && this.userName && this.userName !== "Anónimo") { 
             console.log("Intentando reconectar...");
             $.post(`/api/chat/connect?nombre=${encodeURIComponent(this.userName)}`)
                 .done((data) => {
                     this.userId = data;
                     localStorage.setItem('chatUserId', this.userId); // Guardar el nuevo userId por si cambió
-                    this.setConnectionMessage(true);
+                    this.setConnectionMessage(true); // Solo actualiza el div, no hay alerta
                     this.fetchMessages(); // Recuperar mensajes perdidos
                     this.fetchConnectedUsers(); // Actualizar el conteo de usuarios
                     this.startHeartbeat(); // Reiniciar el heartbeat
                     this.chatInput.prop('disabled', false); // Habilitar el input y el botón
                     this.chatSend.prop('disabled', false);
                 })
-                .fail(() => {
-                    console.error("Fallo al reconectar. Reintentando en 5 segundos...");
+                .fail((jqXHR) => { // jqXHR contiene el error y el status
+                    console.error("Fallo al reconectar:", jqXHR.statusText, jqXHR.status);
+                    // setConnectionMessage ya maneja la alerta y el mensaje del div
+                    this.setConnectionMessage(false, "Conexión perdida. Reintentando..."); 
                     this.reconnectTimeout = setTimeout(() => this.tryReconnect(), 5000);
                 });
-        } else if (!this.userName) {
+        } else if (!this.userName || this.userName === "Anónimo") {
             this.setConnectionMessage(false, "No has iniciado sesión. El chat no está disponible.");
         }
     }
 
+    /**
+     * Envía un mensaje al chat.
+     */
     sendMessage() {
-        if (!this.userId) {
-            alert("No se encontró el ID del usuario. Inicia sesión primero.");
+        // Solo enviar mensaje si el usuario y la conexión son válidos
+        if (!this.userId || !this.isConnected) { 
+            alert("No se encontró el ID del usuario o el chat no está conectado.");
             return;
         }
 
@@ -96,23 +125,28 @@ export default class ChatManager {
             success: () => {
                 this.chatInput.val('');
                 this.fetchMessages();
-                this.setConnectionMessage(true); // Confirmar que la conexión está activa después de enviar
+                this.setConnectionMessage(true); // Solo actualiza el div, no hay alerta
             },
-            error: (error) => {
-                console.error("Error enviando mensaje:", error.responseJSON || error);
-                alert("Error al enviar mensaje. Intenta nuevamente.");
-                this.setConnectionMessage(false); // Indicar pérdida de conexión
+            error: (jqXHR) => {
+                console.error("Error enviando mensaje:", jqXHR.responseJSON || jqXHR.statusText || jqXHR);
+                alert("Error al enviar mensaje. Conexión perdida."); // ALERTA: Error al enviar y conexión perdida
+                this.setConnectionMessage(false, "Error al enviar mensaje. Conexión perdida."); // Actualiza el div
             }
         });
     }
 
+    /**
+     * Obtiene los mensajes más recientes del chat.
+     */
     fetchMessages() {
-        if (!this.userId) return; // Evitar obtener mensajes si no está conectado
+        // Evitar obtener mensajes si no hay usuario o no hay conexión
+        if (!this.userId || !this.isConnected) return; 
 
         $.get("/api/chat", { since: this.lastMessageId })
             .done((data) => {
-                if (!this.isConnected) { // Si se ha reconectado, actualizar el estado
-                    this.setConnectionMessage(true);
+                // Si el estado interno era desconectado y ahora se obtuvo éxito, actualiza a conectado
+                if (!this.isConnected) {
+                    this.setConnectionMessage(true); // Solo actualiza el div, no hay alerta
                 }
                 if (data.messages && data.messages.length > 0) {
                     data.messages.forEach((msg) => {
@@ -122,60 +156,89 @@ export default class ChatManager {
                     this.lastMessageId = data.timestamp;
                 }
             })
-            .fail((error) => {
-                console.error('Error al obtener los mensajes:', error);
-                this.setConnectionMessage(false); // Indicar pérdida de conexión
+            .fail((jqXHR) => {
+                console.error('Error al obtener los mensajes:', jqXHR.statusText, jqXHR.status);
+                this.setConnectionMessage(false, "Conexión perdida mientras se obtenían mensajes."); // ALERTA: Conexión perdida
             });
     }
 
+    /**
+     * Obtiene el conteo de usuarios conectados.
+     */
     fetchConnectedUsers() {
-        if (!this.userId) return; // Evitar obtener usuarios si no está conectado
+        // Evitar obtener usuarios si no hay usuario o no hay conexión
+        if (!this.userId || !this.isConnected) return; 
 
         $.get("/api/chat/activeClients", { userId: this.userId })
             .done((data) => {
                 $('#users-count').text(`Usuarios conectados: ${data}`);
-                if (!this.isConnected) { // Si se ha reconectado, actualizar el estado
-                    this.setConnectionMessage(true);
+                // Si el estado interno era desconectado y ahora se obtuvo éxito, actualiza a conectado
+                if (!this.isConnected) {
+                    this.setConnectionMessage(true); // Solo actualiza el div, no hay alerta
                 }
             })
-            .fail((error) => {
-                console.error('Error al obtener usuarios conectados:', error);
-                this.setConnectionMessage(false); // Indicar pérdida de conexión
+            .fail((jqXHR) => {
+                console.error('Error al obtener usuarios conectados:', jqXHR.statusText, jqXHR.status);
+                this.setConnectionMessage(false, "Conexión perdida mientras se obtenían usuarios."); // ALERTA: Conexión perdida
             });
     }
 
+    /**
+     * Conecta el usuario al chat con el servidor.
+     */
     connectUser() {
-        $.post(`/api/chat/connect?nombre=${encodeURIComponent(this.userName)}`)
-            .done((data) => {
-                this.userId = data; // Guardar el userId asignado por el servidor
-                localStorage.setItem('chatUserId', this.userId);
-                this.setConnectionMessage(true);
-                console.log(`Usuario conectado con nombre: ${this.userName} y ID: ${this.userId}`);
+        // Solo conectar si hay un nombre de usuario válido
+        if (this.userName && this.userName !== "Anónimo") { 
+            $.post(`/api/chat/connect?nombre=${encodeURIComponent(this.userName)}`)
+                .done((data) => {
+                    this.userId = data; // Guardar el userId asignado por el servidor
+                    localStorage.setItem('chatUserId', this.userId);
+                    this.setConnectionMessage(true); // Solo actualiza el div, no hay alerta
+                    console.log(`Usuario conectado con nombre: ${this.userName} y ID: ${this.userId}`);
 
-                this.fetchConnectedUsers(); // Actualizar el conteo de usuarios
-                this.startHeartbeat(); // Iniciar heartbeat
-                this.chatInput.prop('disabled', false); // Habilitar input y botón
-                this.chatSend.prop('disabled', false);
-            })
-            .fail((error) => {
-                console.error('Error al conectar usuario: ', error);
-                this.setConnectionMessage(false, "No se pudo conectar al chat. Intentando reconectar...");
-            });
+                    this.fetchConnectedUsers(); // Actualizar el conteo de usuarios
+                    this.startHeartbeat(); // Iniciar heartbeat
+                    this.chatInput.prop('disabled', false); // Habilitar input y botón
+                    this.chatSend.prop('disabled', false);
+                })
+                .fail((jqXHR) => {
+                    console.error('Error al conectar usuario: ', jqXHR.statusText, jqXHR.status);
+                    this.setConnectionMessage(false, "No se pudo conectar al chat. Reintentando..."); // ALERTA: No se pudo conectar
+                });
+        } else {
+            this.setConnectionMessage(false, "No has iniciado sesión. El chat no está disponible.");
+        }
     }
 
+    /**
+     * Desconecta el usuario del chat.
+     */
     disconnectUser() {
         if (this.userId) {
+            // Detener heartbeats y fetches inmediatamente al desconectar
+            clearInterval(this.heartbeatInterval);
+            clearInterval(this.messageFetchInterval);
+            clearInterval(this.userFetchInterval);
+
             $.post("/api/chat/disconnect", { userId: this.userId })
                 .done((updatedCount) => {
                     this.userCount.text(`Usuarios conectados: ${updatedCount}`);
                     localStorage.removeItem('chatUserId'); // Limpiar el ID de usuario al desconectar
                     this.userId = null; // Limpiar userId en la instancia
-                    this.setConnectionMessage(false, "Desconectado del chat.");
+                    this.setConnectionMessage(false, "Te has desconectado del chat."); // Esto generará la alerta
                 })
-                .fail((error) => console.error('Error al desconectar el usuario: ', error));
+                .fail((jqXHR) => {
+                    console.error('Error al desconectar el usuario: ', jqXHR.statusText, jqXHR.status);
+                    alert("Error al intentar desconectarse del chat."); // ALERTA: Error al desconectar
+                    // Si falla la desconexión, mantenemos el estado como perdido y se intentará reconectar.
+                    this.setConnectionMessage(false, "Error al intentar desconectarse. Conexión perdida.");
+                });
         }
     }
 
+    /**
+     * Inicia el latido (heartbeat) para mantener la conexión activa.
+     */
     startHeartbeat() {
         // Limpiar intervalo previo para evitar múltiples heartbeats
         if (this.heartbeatInterval) {
@@ -186,18 +249,37 @@ export default class ChatManager {
         }, 3000); // cada 3 segundos
     }
 
+    /**
+     * Envía un latido al servidor.
+     */
     sendHeartbeat() {
-        if (this.userId) {
+        // Solo enviar heartbeat si hay userId y se considera conectado
+        if (this.userId && this.isConnected) { 
             $.post("/api/chat/heartbeat", { userId: this.userId })
                 .done(() => {
-                    if (!this.isConnected) { // Si se ha reconectado, actualizar el estado
-                        this.setConnectionMessage(true);
+                    // Si de alguna forma se marcó como desconectado y el heartbeat funciona, actualiza a conectado
+                    if (!this.isConnected) {
+                        this.setConnectionMessage(true); // Solo actualiza el div, no hay alerta
                     }
                 })
-                .fail(() => this.setConnectionMessage(false)); // Indicar pérdida de conexión
+                .fail((jqXHR) => {
+                    console.error("Heartbeat fallido:", jqXHR.statusText, jqXHR.status);
+                    // Si el servidor responde con 404 (NOT_FOUND), significa que el userId ya no es válido en el servidor.
+                    if (jqXHR.status === 404) {
+                        console.log("Heartbeat 404: El usuario no es válido en el servidor. Forzando reconexión.");
+                        // Establecer isConnected a false y llamar a tryReconnect para obtener un nuevo userId
+                        this.setConnectionMessage(false, "Tu sesión de chat ha expirado. Reconectando...");
+                        // tryReconnect ya se llamará si isConnected es false y userName es válido
+                    } else {
+                        this.setConnectionMessage(false, "Conexión perdida (heartbeat fallido). Reintentando..."); // ALERTA: Heartbeat fallido
+                    }
+                });
         }
     }
 
+    /**
+     * Inicia la obtención periódica de mensajes.
+     */
     startFetchingMessages() {
         // Limpiar intervalo previo para evitar múltiples fetches
         if (this.messageFetchInterval) {
@@ -206,6 +288,9 @@ export default class ChatManager {
         this.messageFetchInterval = setInterval(() => this.fetchMessages(), 2000);
     }
 
+    /**
+     * Inicia la obtención periódica de usuarios conectados.
+     */
     startFetchingUsers() {
         // Limpiar intervalo previo para evitar múltiples fetches
         if (this.userFetchInterval) {
