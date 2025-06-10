@@ -7,24 +7,44 @@ export default class ChatManager {
         this.userCount = $('#users-count');
 
         this.lastMessageId = 0;
-        this.userId = localStorage.getItem('chatUserId');
-        this.userName = localStorage.getItem('userName');
+        this.userId = null;
+        this.userName = null;
 
-        if (this.userName) {
+        this.initializeChat();
+    }
+
+    async initializeChat(){
+        const isAuthenticated = await this.checkAuthentication();
+
+        if(isAuthenticated){
+            this.userId = localStorage.getItem('chatUserId');
+            this.userName = localStorage.getItem('userName');
             this.connectUser();
+            this.startFetchingMessages();
+            this.startFetchingUsers();
         } else {
-            console.warn("Usuario no logueado. No se inicializa el chat");
+            console.warn("Usuario no autenticado, Redirigiendo a login");
+            window.location.href="/";
         }
+    }
 
-        // Listeners
-        this.chatSend.on('click', () => this.sendMessage());
-        this.chatInput.on('keypress', (e) => {
-            if (e.key === 'Enter') this.sendMessage();
-        });
+    async checkAuthentication(){
+        try{
+            const response = await fetch('usuario/check-auth', {
+                method: 'GET',
+                credentials: 'include'
+            });
 
+            if(!response.ok){
+                throw new Error ('No autenticado');
+            }
 
-        this.startFetchingMessages();
-        this.startFetchingUsers();
+            const data = await response.json();
+            return data.authenticated;
+        } catch (error){
+            console.error("Error verificando autentificacón: ", error);
+            return false;
+        }
     }
 
     sendMessage() {

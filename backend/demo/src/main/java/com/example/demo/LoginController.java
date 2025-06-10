@@ -9,6 +9,12 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.Map;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.GetMapping;
+
+
 
 @RestController
 @RequestMapping("/usuario")
@@ -91,4 +97,16 @@ public class LoginController {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
             .body(Map.of("success", false, "message", "Usuario no encontrado"));
     }
+    
+
+    @GetMapping("/check-auth")
+    public ResponseEntity<?> checkAuth() {
+        
+        return ResponseEntity.ok().body((Map.of("authenticated", true)));
+    }
+    
+    public String requestMethodName(@RequestParam String param) {
+        return new String();
+    }
+    
 }

@@ -92,12 +92,12 @@ class LoginScene extends Phaser.Scene {
     }
 
     // Función para iniciar sesión
-    login(user, password) {
-    fetch("http://localhost:8080/usuario/login", {
+    login(nombre, password) {
+    fetch('/usuario/login', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            id: user, 
+            id: nombre, 
             password: password 
         })
     })
@@ -107,7 +107,8 @@ class LoginScene extends Phaser.Scene {
             alert("Inicio de sesión exitoso");
 
             // Guardar el nombre de usuario en localStorage para usar en el chat
-            sessionStorage.setItem('usuarioNombre', user);
+            localStorage.setItem('usuarioNombre', nombre);
+            localStorage.setItem('userName', nombre);
 
             if (this.nombre) this.nombre.remove();
             if (this.contra) this.contra.remove();
@@ -131,7 +132,7 @@ class LoginScene extends Phaser.Scene {
             alert("Por favor completa todos los campos.");
             return;
         }
-        fetch("http://localhost:8080/usuario/registro", {
+        fetch('/usuario/registro', {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: nombre, password: contra })
