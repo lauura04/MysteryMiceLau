@@ -20,7 +20,7 @@ public class ChatController {
     private final AtomicInteger lastMessageId = new AtomicInteger(0); 
     private final ConcurrentHashMap<Integer, ClientInfo> activeClients = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> userNamesToIds = new ConcurrentHashMap<>();
-    private final AtomicInteger userIdCounter = new AtomicInteger(0);
+    private final AtomicInteger userIdCounter = new AtomicInteger(1);
 
     private static class ClientInfo {
         private final int userId;
@@ -78,7 +78,9 @@ public class ChatController {
 
     @GetMapping("/activeClients")
     public int getActiveClients() {
-         return activeClients.size(); 
+        int currentActiveClients = activeClients.size();
+        System.out.println(currentActiveClients);
+         return currentActiveClients; 
     }
 
     @PostMapping

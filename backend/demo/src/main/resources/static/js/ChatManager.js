@@ -107,7 +107,7 @@ export default class ChatManager {
      */
     sendMessage() {
         // Solo enviar mensaje si el usuario y la conexión son válidos
-        if (!this.userId || !this.isConnected) { 
+        if (this.userId === null || this.userId === undefined||!this.isConnected) { 
             alert("No se encontró el ID del usuario o el chat no está conectado.");
             return;
         }
