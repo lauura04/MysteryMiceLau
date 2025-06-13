@@ -135,16 +135,12 @@ export default class ChatManager {
         });
     }
 
-    /**
-     * Obtiene los mensajes más recientes del chat.
-     */
+   
     fetchMessages() {
-        // Evitar obtener mensajes si no hay usuario o no hay conexión
-        if (!this.userId || !this.isConnected) return; 
+       if (!this.userId || !this.isConnected) return; 
 
         $.get("/api/chat", { since: this.lastMessageId })
             .done((data) => {
-                // Si el estado interno era desconectado y ahora se obtuvo éxito, actualiza a conectado
                 if (!this.isConnected) {
                     this.setConnectionMessage(true); // Solo actualiza el div, no hay alerta
                 }
@@ -162,17 +158,13 @@ export default class ChatManager {
             });
     }
 
-    /**
-     * Obtiene el conteo de usuarios conectados.
-     */
+    
     fetchConnectedUsers() {
-        // Evitar obtener usuarios si no hay usuario o no hay conexión
-        if (!this.userId || !this.isConnected) return; 
+         if (!this.userId || !this.isConnected) return; 
 
         $.get("/api/chat/activeClients", { userId: this.userId })
             .done((data) => {
-                $('#users-count').text(`Usuarios conectados: ${data}`);
-                // Si el estado interno era desconectado y ahora se obtuvo éxito, actualiza a conectado
+               this.userCount.text(`Usuarios conectados: ${data}`);
                 if (!this.isConnected) {
                     this.setConnectionMessage(true); // Solo actualiza el div, no hay alerta
                 }
@@ -183,11 +175,8 @@ export default class ChatManager {
             });
     }
 
-    /**
-     * Conecta el usuario al chat con el servidor.
-     */
+    
     connectUser() {
-        // Solo conectar si hay un nombre de usuario válido
         if (this.userName && this.userName !== "Anónimo") { 
             $.post(`/api/chat/connect?nombre=${encodeURIComponent(this.userName)}`)
                 .done((data) => {
@@ -196,7 +185,7 @@ export default class ChatManager {
                     this.setConnectionMessage(true); // Solo actualiza el div, no hay alerta
                     console.log(`Usuario conectado con nombre: ${this.userName} y ID: ${this.userId}`);
 
-                    this.fetchConnectedUsers(); // Actualizar el conteo de usuarios
+                    //this.fetchConnectedUsers(); // Actualizar el conteo de usuarios
                     this.startHeartbeat(); // Iniciar heartbeat
                     this.chatInput.prop('disabled', false); // Habilitar input y botón
                     this.chatSend.prop('disabled', false);
@@ -210,9 +199,7 @@ export default class ChatManager {
         }
     }
 
-    /**
-     * Desconecta el usuario del chat.
-     */
+    
     disconnectUser() {
         if (this.userId) {
             // Detener heartbeats y fetches inmediatamente al desconectar
@@ -236,9 +223,7 @@ export default class ChatManager {
         }
     }
 
-    /**
-     * Inicia el latido (heartbeat) para mantener la conexión activa.
-     */
+    
     startHeartbeat() {
         // Limpiar intervalo previo para evitar múltiples heartbeats
         if (this.heartbeatInterval) {
@@ -249,11 +234,8 @@ export default class ChatManager {
         }, 3000); // cada 3 segundos
     }
 
-    /**
-     * Envía un latido al servidor.
-     */
+    
     sendHeartbeat() {
-        // Solo enviar heartbeat si hay userId y se considera conectado
         if (this.userId && this.isConnected) { 
             $.post("/api/chat/heartbeat", { userId: this.userId })
                 .done(() => {
@@ -277,20 +259,15 @@ export default class ChatManager {
         }
     }
 
-    /**
-     * Inicia la obtención periódica de mensajes.
-     */
+    
     startFetchingMessages() {
-        // Limpiar intervalo previo para evitar múltiples fetches
-        if (this.messageFetchInterval) {
+       if (this.messageFetchInterval) {
             clearInterval(this.messageFetchInterval);
         }
         this.messageFetchInterval = setInterval(() => this.fetchMessages(), 2000);
     }
 
-    /**
-     * Inicia la obtención periódica de usuarios conectados.
-     */
+    
     startFetchingUsers() {
         // Limpiar intervalo previo para evitar múltiples fetches
         if (this.userFetchInterval) {

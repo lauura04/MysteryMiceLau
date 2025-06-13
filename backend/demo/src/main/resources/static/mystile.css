@@ -57,3 +57,13 @@ h1{
     cursor: pointer;
 }
 
+#connection-status {
+    position: absolute; 
+    top: 45px;          
+    right: 275px;        
+    padding: 5px 10px;  
+    border-radius: 5px;
+    font-size: 0.9em;   
+    z-index: 1000;      
+}
+

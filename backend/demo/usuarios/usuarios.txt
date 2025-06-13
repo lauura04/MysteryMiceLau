@@ -24,3 +24,5 @@ b,b,0
 e,e,0
 m,m,0
 xczx,x,0
+asfasdgf,a,0
+sfsdg,s,0

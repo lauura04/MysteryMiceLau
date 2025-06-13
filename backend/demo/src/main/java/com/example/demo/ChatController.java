@@ -103,14 +103,9 @@ public class ChatController {
 
     @PostMapping("/connect")
     public ResponseEntity<Integer> connectClient(@RequestParam String nombre) {
-        // 1. Intentar encontrar un userId existente para este nombre
-        // Primero, limpia cualquier posible "fantasma" con ese nombre si ha pasado mucho tiempo
-        // (Aunque Scheduled se encarga, una limpieza ad-hoc aquí podría ser útil en casos de edge)
-        // No es estrictamente necesario si Scheduled funciona bien, pero es una opción.
-
+        
         Integer existingUserId = userNamesToIds.get(nombre);
 
-        // Si existe un ID para este nombre Y ese ID está actualmente en activeClients
         if (existingUserId != null && activeClients.containsKey(existingUserId)) {
             // El usuario ya está conectado o se está reconectando con un ID válido
             ClientInfo client = activeClients.get(existingUserId);
