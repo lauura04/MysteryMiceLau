@@ -1,4 +1,4 @@
-class LoginScene extends Phaser.Scene {
+export default class LoginScene extends Phaser.Scene {
     constructor() {
         super({ key: 'LoginScene' });
     }
