@@ -1,11 +1,18 @@
 import ControlsManager from "./controlesJug.js";
-
+import { MSG_TYPES } from './WebSocketMessages.js'
+import WebsSocketManger from "./WebSocketManager.js";
 
 export default class TutorialScene extends Phaser.Scene {
     constructor() {
         super({ key: 'TutorialScene' });
+        this.WebsSocketManger = null;
+        this.gameId = null; //asignar cuando el servidor lo envíe
+        this.myPlayerId = null;
+        this.myPlayerKey = null;
 
-
+        this.myPlayer = null;
+        this.otherPlayer = null;
+        this.myControls = null;
     }
 
     preload() {
@@ -42,6 +49,31 @@ export default class TutorialScene extends Phaser.Scene {
         const centerX = this.scale.width / 2;
         const centerY = this.scale.height / 2;
 
+        //inicializacion de websockets 
+        this.WebsSocketManger = new WebsSocketManger(this);
+        this.WebsSocketManger.connect();
+
+        // elementos de espera
+        this.waitingText = this.add.text(centerX, centerY, 'Esperando a otro jugador', {
+            font: '50px mousy',
+            color: '#ffffff',
+            align: 'center'
+        }).setOrigin(0.5).setDepth(10);
+
+        // Crear personajes
+        this.sighttail = this.physics.add.sprite(1.56 * centerX, 0.2 * centerY, 'Sighttail')
+            .setScale(2)
+            .setSize(40, 30)
+            .setOffset(12, 20)
+            .setVisible(false); //invisible hasta que se asignan los roles
+
+        this.scentpaw = this.physics.add.sprite(1.42 * centerX, 0.2 * centerY, 'Scentpaw')
+            .setScale(2)
+            .setSize(40, 30)
+            .setOffset(12, 20)
+            .setVisible(false);
+
+
         //Creamos unos arrays para meter las imagenes de las huellas y el humo
         this.huellas = [];
         this.humos = [];
@@ -63,9 +95,6 @@ export default class TutorialScene extends Phaser.Scene {
         const cementerio = this.add.rectangle(1.6 * centerX, 0, 0.4 * centerX, 1.4 * centerY, 0x000000, 0).setOrigin(0, 0);
         this.physics.add.existing(cementerio, true);//Le añadimos esto para que los personaje sno lo puedan atravesar
 
-        this.puerta = this.add.rectangle(0.5 * centerX, 0.55 * centerY, 0.2 * centerX, 0.45 * centerY, 0x000000, 0).setOrigin(0, 0);
-        this.physics.add.existing(this.puerta, true);//Le añadimos esto para que los personaje sno lo puedan atravesar
-        this.puertaInteractuable = false; // Controla si el jugador puede interactuar con la puerta.
 
         //Fondo
         const escenario = this.add.image(centerX, centerY, "escenario");
@@ -79,16 +108,6 @@ export default class TutorialScene extends Phaser.Scene {
         //Añadimos el agujero que no es visible desde el inicio
         this.agujero = this.physics.add.image(1.1 * centerX, 0.2 * centerY, 'agujero').setScale(1.7).setVisible(false);
 
-        // Crear personajes
-        this.sighttail = this.physics.add.sprite(1.56 * centerX, 0.2 * centerY, 'Sighttail')
-            .setScale(2)
-            .setSize(40, 30)
-            .setOffset(12, 20);
-
-        this.scentpaw = this.physics.add.sprite(1.42 * centerX, 0.2 * centerY, 'Scentpaw')
-            .setScale(2)
-            .setSize(40, 30)
-            .setOffset(12, 20);
 
         //Colocamos a los personajes en el escenario
         this.centerjX = (this.sighttail.x + this.scentpaw.x) / 2;
@@ -105,28 +124,6 @@ export default class TutorialScene extends Phaser.Scene {
         this.physics.add.collider(this.sighttail, cementerio);
         this.physics.add.collider(this.scentpaw, cementerio);
 
-        //Si choca con la puerta se inicia el dialogo de esta
-        this.physics.add.collider(this.sighttail, this.puerta, () => {
-            this.launchDialogueScene(1);
-        });
-
-        this.physics.add.collider(this.scentpaw, this.puerta, () => {
-            this.launchDialogueScene(1);
-        });
-
-        //Si el personaje de Sighttail se choca con el agujero usando su habilidad se inicia la conversación
-        this.physics.add.overlap(this.sighttail, this.agujero, (player, agujero) => {
-            if (this.agujero.visible) {
-                this.checkAgujeroInteraction('Sighttail');
-            }
-        });
-
-        //Lo mismo pero con el otro personaje
-        this.physics.add.overlap(this.scentpaw, this.agujero, (player, agujero) => {
-            if (this.agujero.visible) {
-                this.checkAgujeroInteraction('Scentpaw');
-            }
-        });
 
         //Ponemos las huellas invisibles
         const oscuridad = this.add.rectangle(centerX, centerY, 2 * centerX, 2 * centerY, 0x000000, 0.5);
@@ -168,11 +165,11 @@ export default class TutorialScene extends Phaser.Scene {
             });
 
         //boton para abrir el chat
-        const chatButton = this.add.image(1.43*centerX, 0.6*centerY, 'chat').setScrollFactor(0).setScale(0.15)
+        const chatButton = this.add.image(1.43 * centerX, 0.6 * centerY, 'chat').setScrollFactor(0).setScale(0.15)
             .setInteractive()
-            .on('pointerdown', () =>{
+            .on('pointerdown', () => {
                 $('#chat-container').toggle();
-        });
+            });
 
         //icono de los poderes
         this.vision = this.add.image(0.56 * centerX, 1.4 * centerY, 'vision').setScrollFactor(0);
@@ -181,10 +178,81 @@ export default class TutorialScene extends Phaser.Scene {
         this.capaV = this.add.circle(0.56 * centerX, 1.4 * centerY, 32, 0x000000, 0.5).setScrollFactor(0).setVisible(true);
         this.capaO = this.add.circle(0.56 * centerX, 1.25 * centerY, 32, 0x000000, 0.5).setScrollFactor(0).setVisible(true);
 
+
+
+    }
+
+    startGame(gameId, myPlayerId, myPlayerKey) {
+        this.gameId = gameId;
+        this.myPlayerId = myPlayerId;
+        this.myPlayerKey = myPlayerKey;
+
+        this.waitingText.setVisible(false); //oculta mensaje de espera
+
+        //asignar personajes entre jugadores
+        if (this.myPlayerKey === 'Sighttail') {
+            this.myPlayerId = this.sighttail;
+            this.otherPlayer = this.scentpaw;
+            this.myControls = this.controlsManager.controls1;
+        } else {
+            this.myPlayer = this.scentpaw;
+            this.otherPlayer = this.sighttail;
+            this.myControls = this.controlsManager.controls2;
+        }
+
+        this.myPlayer.setVisible(true).setImmovable(false);
+        this.otherPlayer.setVisible(true).setImmovable(false);
+
+        this.otherPlayer.body.setVelocity(0, 0);
+        this.otherPlayer.body.setAllowGravity(false);
+
+        console.log(`Partida ${this.gameId} iniciada. Eres ${this.myPlayerKey}`);
+
         // Lanzar el primer diálogo
         this.launchDialogueScene(0);
 
+        this.puerta = this.add.rectangle(0.5 * centerX, 0.55 * centerY, 0.2 * centerX, 0.45 * centerY, 0x000000, 0).setOrigin(0, 0);
+        this.physics.add.existing(this.puerta, true);//Le añadimos esto para que los personaje sno lo puedan atravesar
+        this.puertaInteractuable = false; // Controla si el jugador puede interactuar con la puerta.
 
+        //Si choca con la puerta se inicia el dialogo de esta
+        this.physics.add.collider(this.sighttail, this.puerta, () => this.handlePuertaCollision('Sighttail'));
+
+        this.physics.add.collider(this.scentpaw, this.puerta, () => this.handlePuertaCollision('Scentpaw'));
+
+
+
+        //Si el personaje de Sighttail se choca con el agujero usando su habilidad se inicia la conversación
+        this.physics.add.overlap(this.sighttail, this.agujero, (player, agujero) => {
+            if (this.agujero.visible) {
+                this.checkAgujeroInteraction('Sighttail');
+            }
+        });
+
+        //Lo mismo pero con el otro personaje
+        this.physics.add.overlap(this.scentpaw, this.agujero, (player, agujero) => {
+            if (this.agujero.visible) {
+                this.checkAgujeroInteraction('Scentpaw');
+            }
+        });
+
+    }
+
+    handlePuertaCollision(playerKey) {
+
+        if (playerKey === this.myPlayerKey && this.puertaInteractuable === false) {
+            this.webSocketManager.send({ type: 'door_interact', playerId: this.myPlayerId, playerKey: playerKey });
+        }
+
+    }
+
+    handleDoorInteractionConfirmed() {
+        if (this.puertaInteractuable === false) { 
+            this.puertaInteractuable = true; 
+            this.launchDialogueScene(1); 
+            console.log("Puerta interactuada, lanzando diálogo para ambos.");
+        }
+        
     }
 
     //Confirma la interacción con el agujero
@@ -226,11 +294,11 @@ export default class TutorialScene extends Phaser.Scene {
             case 1: // puerta
                 startIndex = 7;
                 endIndex = 9;
-                this.agujero.setVisible(true);
-                this.capaO.setVisible(false);
-                this.capaV.setVisible(false);
-                this.vistaDisp = true;
-                this.olfatoDisp = true;
+                //this.agujero.setVisible(true);
+                //this.capaO.setVisible(false);
+                //this.capaV.setVisible(false);
+                //this.vistaDisp = true;
+                //this.olfatoDisp = true;
                 break;
 
             case 2: // dialogo de agujero
@@ -316,7 +384,7 @@ export default class TutorialScene extends Phaser.Scene {
             this.controlsManager.controls1,
             'Sighttail'
         );
-        
+
         this.controlsManager.handlePlayerMovement(
             this.scentpaw,
             this.controlsManager.controls2,
