@@ -6,8 +6,6 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.util.*;
@@ -20,7 +18,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final Map<String, Game> games = new ConcurrentHashMap<>(); // Mapa: sessionId del jugador -> Objeto Game
     private final Queue<WebSocketSession> waitingPlayers = new ConcurrentLinkedQueue<>();
     private final ObjectMapper mapper = new ObjectMapper(); // ObjectMapper para JSON
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     /**
      * Represents a player in the game with their position, score, and WebSocket

@@ -1,26 +1,23 @@
+import WebSocketManager from "./WebSocketManager.js";
 import ControlsManager from "./controlesJug.js";
-import { MSG_TYPES } from './WebSocketMessages.js' 
-import WebsSocketManger from "./WebSocketManager.js"; // Asegúrate de que el nombre del archivo es exactamente este
+import { MSG_TYPES } from './WebSocketMessages.js'
+// Asegúrate de que el nombre del archivo es exactamente este
 
 export default class TutorialScene extends Phaser.Scene {
     constructor() {
         super({ key: 'TutorialScene' });
-       
-        this.myPlayer = null; 
-        this.otherPlayer = null; 
-        this.myControls = null; 
 
-        this.waitingText = null;
+        this.myPlayer = null;
+        this.otherPlayer = null;
+        this.webSocketManager = null;
+        this.controlsManager = null;
+
+        this.waitingDisplay = null;
 
         this.gameStarted = false;
 
         this.playerId = null;
-        
-        this.lastSentPlayerState = { x: 0, y: 0, anim: ''};
 
-        this.POSITION_UPDATE_INTERVAL = 50;
-
-        this.POSITION_THRESHOLD = 2;
     }
 
     preload() {
@@ -50,31 +47,36 @@ export default class TutorialScene extends Phaser.Scene {
     }
 
     create() {
-        this.socket = new WebSocket("ws://" + location.host + "/ws");
+        this.webSocketManager = new WebSocketManager();
+        this.webSocketManager.connect("ws://" + location.host + "/ws");
 
-        this.controlsManager = new ControlsManager(this);
+        this.setupWebsocketHandlers();
+
+        this.controlsManager = new ControlsManager(this, this.webSocketManager);
+        this.controlsManager.initializeControls();
 
         const centerX = this.scale.width / 2;
         const centerY = this.scale.height / 2;
 
         // Elementos de espera mientras se une el otro jugador
-        this.waitingText = this.add.text(0.63*centerX, 1.35*centerY, 'Esperando a otro jugador', { 
-            font: '30px mousy', 
+        this.waitingDisplay = this.add.text(0.63 * centerX, 1.35 * centerY, 'Esperando a otro jugador', {
+            font: '30px mousy',
             color: '#ffffff',
             align: 'center'
-        }).setDepth(10); 
+        }).setDepth(10);
 
         // Crear personajes 
         this.sighttail = this.physics.add.sprite(1.56 * centerX, 0.2 * centerY, 'Sighttail')
             .setScale(2)
             .setSize(40, 30)
-            .setOffset(12, 20); 
+            .setOffset(12, 20)
+            .setVisible(false);
 
         this.scentpaw = this.physics.add.sprite(1.42 * centerX, 0.2 * centerY, 'Scentpaw')
             .setScale(2)
             .setSize(40, 30)
             .setOffset(12, 20)
-            .setVisible(false); 
+            .setVisible(false);
 
 
         // Creamos unos arrays para meter las imagenes de las huellas y el humo
@@ -154,7 +156,7 @@ export default class TutorialScene extends Phaser.Scene {
         this.capaV = this.add.circle(0.56 * centerX, 1.4 * centerY, 32, 0x000000, 0.5).setScrollFactor(0).setVisible(true);
         this.capaO = this.add.circle(0.56 * centerX, 1.25 * centerY, 32, 0x000000, 0.5).setScrollFactor(0).setVisible(true);
 
-       this.input.keyboard.on('keydown-E', () => {
+        this.input.keyboard.on('keydown-E', () => {
             if (this.myPlayer && this.myPlayerKey === 'Sighttail' && this.agujero.visible && this.physics.overlap(this.myPlayer, this.agujero)) {
                 this.webSocketManager.send(MSG_TYPES.AGUJERO_INTERACT, { playerKey: this.myPlayerKey });
             }
@@ -169,38 +171,86 @@ export default class TutorialScene extends Phaser.Scene {
         this.createAnimations('Sighttail');
         this.createAnimations('Scentpaw');
 
-        this.setupWebsocket();
+
     }
 
 
 
-    setupWebsocket(){
-        this.socket.onopen = () => {
-            console.log('Conected to server');
-        };
+    setupWebsocketHandlers() {
+        this.webSocketManager.on(MSG_TYPES.INIT, (data) => this.handleInit.bind(this));
+        this.webSocketManager.on(MSG_TYPES.POS, (data) => this.handlePosition(data));
+        this.webSocketManager.on(MSG_TYPES.PLAYER_UPDATE, (data) => this.handlePlayerUpdate(data));
 
-        this.socket.onmessage = (event) => {
-            const type = event.data.charAt(0);
-            const data = event.data.length > 1 ? JSON.parse(event.data.substring(1)) : null;
-
-            switch(type) {
-                case MSG_TYPES.INIT:
-                    this.handleInit(data);
-                    break;
-                case MSG_TYPES.POS:
-                    this.handlePosition(data);
-                    break;
-                case MSG_TYPES.OVER: //aqui no seria necesario, seria en el otro
-                    this.handleGameOver(data);
-            }
-        };
-
-        this.socket.onclose = () =>{
+        this.webSocketManager.on('open', () => console.log('WebSocket connection opened.'));
+        this.webSocketManager.on('close', () => {
+            console.log('WebSocket connection closed.');
             this.gameStarted = false;
-        };
+        });
+        this.webSocketManager.on('error', (error) => console.error('WebSocket error in MainScene:', error));
+
+
     }
 
-  
+    handleInit(data) {
+        console.log("TutorialScene: handleInit received data:", data);
+        if (this.waitingDisplay) {
+            this.waitingDisplay.destroy();
+            this.waitingDisplay=null;
+        }
+
+        this.playerId = data.id;
+        console.log("TutorialScene: My Player ID is:", this.playerId);
+        this.initializePlayers(data.p);
+        console.log("TutorialScene: initializePlayers called.");
+        this.gameStarted = true;
+    }
+
+    initializePlayers(players){
+        console.log("TutorialScene: initializePlayers received players:", players);
+        players.forEach(p =>{
+            const serverPlayerId = p[2];
+            const initialX = p[0];
+            const initialY = p[1];
+
+            let targetSprite = null;
+            let playerSpriteKey = '';
+
+            if (serverPlayerId === 1) {
+                targetSprite = this.sighttail;
+                playerSpriteKey = 'Sighttail';
+            } else if (serverPlayerId === 2) {
+                targetSprite = this.scentpaw;
+                playerSpriteKey = 'Scentpaw';
+            }
+
+            targetSprite.setPosition(initialX, initialY);
+            targetSprite.setVisible(true); // Hacer visible el sprite
+            if (serverPlayerId === this.playerId) {
+                this.myPlayer = targetSprite;
+                this.myPlayerKey = playerSpriteKey; // Guardar la clave de mi personaje
+
+                // Configurar el ControlsManager con los datos iniciales de miPlayer
+                this.controlsManager.lastSentPosition = { x: initialX, y: initialY };
+                this.controlsManager.lastSentAnim = `${playerSpriteKey}-idleDown`;
+                this.controlsManager.lastSentFlipX = false;
+                
+                
+            } else {
+                this.otherPlayer = targetSprite;
+            }
+
+            // Iniciar la animación inicial (idleDown por defecto)
+            targetSprite.anims.play(`${playerSpriteKey}-idleDown`, true);
+        });
+
+        // Una vez inicializados, puedes activar la cámara para seguir a tu jugador
+        if (this.myPlayer) {
+            this.cameras.main.startFollow(this.myPlayer, true, 0.05, 0.05); // Smooth camera follow
+        }
+    }
+   
+
+
 
     update(time, delta) {
         // Solo maneja el movimiento del jugador local si ya está asignado
@@ -302,8 +352,8 @@ export default class TutorialScene extends Phaser.Scene {
     }
 
     // Método llamado por WebSocketManager cuando el servidor indica que el juego ha comenzado
-    startGame(gameId, myPlayerId, myPlayerKey) { 
-       
+    startGame(gameId, myPlayerId, myPlayerKey) {
+
         this.myPlayerId = myPlayerId;
         this.myPlayerKey = myPlayerKey;
 
@@ -341,7 +391,7 @@ export default class TutorialScene extends Phaser.Scene {
         this.launchDialogueScene(0);
 
         // Configuración de la puerta
-        
+
         this.puerta = this.add.rectangle(0.5 * centerX, 0.55 * centerY, 0.2 * centerX, 0.45 * centerY, 0x000000, 0).setOrigin(0, 0);
         this.physics.add.existing(this.puerta, true);
         this.puertaInteractuable = false;
@@ -447,5 +497,5 @@ export default class TutorialScene extends Phaser.Scene {
         this.anims.create({ key: `${playerkey}-walk-left`, frames: this.anims.generateFrameNumbers(playerkey, { start: 117, end: 125 }), frameRate: 10, repeat: -1 });
         this.anims.create({ key: `${playerkey}-walk-right`, frames: this.anims.generateFrameNumbers(playerkey, { start: 143, end: 151 }), frameRate: 10, repeat: -1 });
     }
-    
+
 }
