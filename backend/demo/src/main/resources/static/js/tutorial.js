@@ -24,12 +24,25 @@ export default class TutorialScene extends Phaser.Scene {
 
         // Objeto para almacenar el último estado enviado del jugador.
         // Esto se usa para evitar enviar mensajes de actualización si no hay cambios.
-        this.lastSentPlayerState = { x: 0, y: 0, anim: '', flipX: false };
+        this.lastSentPlayerPosition = { x: 0, y: 0 };
         this.lastUpdateTime = 0;
         this.POSITION_UPDATE_INTERVAL = 50;
         this.POSITION_THRESHOLD = 2;
 
-        this.otherPlayerCurrentAnim='';
+        this.otherPlayerCurrentAnim = '';
+
+        this.cursors = null; // Declararlo aquí lo hace accesible globalmente en la escena
+
+
+        // Tiempo de carga y duracción de las habilidades
+        this.cargaOlfato = 10000;
+        this.cargaVista = 10000;
+        this.durOlfato = 3000;
+        this.durVista = 3000;
+
+        // Estado de los poderes inicialmente
+        this.vistaDisp = false;
+        this.olfatoDisp = false;
     }
 
     preload() {
@@ -59,8 +72,13 @@ export default class TutorialScene extends Phaser.Scene {
     }
 
     create() {
+        this.cursors = this.input.keyboard.createCursorKeys();
+
+        this.abilityKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+
         this.controlsManager = new ControlsManager(this);
-        
+
         const centerX = this.scale.width / 2;
         const centerY = this.scale.height / 2;
 
@@ -81,16 +99,6 @@ export default class TutorialScene extends Phaser.Scene {
         // Creamos unos arrays para meter las imagenes de las huellas y el humo
         this.huellas = [];
         this.humos = [];
-
-        // Tiempo de carga y duracción de las habilidades
-        this.cargaOlfato = 10000;
-        this.cargaVista = 10000;
-        this.durOlfato = 3000;
-        this.durVista = 3000;
-
-        // Estado de los poderes inicialmente
-        this.vistaDisp = false;
-        this.olfatoDisp = false;
 
         // Crear áreas y objetos (colisiones del mundo)
         const cripta = this.add.rectangle(0.085 * centerX, 0, centerX + 30, 0.95 * centerY, 0x000000, 0).setOrigin(0, 0);
@@ -196,7 +204,9 @@ export default class TutorialScene extends Phaser.Scene {
     }
 
     // Método llamado por WebSocketManager cuando el servidor indica que el juego ha comenzado
-    startGame(gameId, myPlayerId, myPlayerKey) { 
+    startGame(gameId, myPlayerId, myPlayerKey) {
+        console.log("startGame called!");
+
         this.gameId = gameId;
         this.myPlayerId = myPlayerId;
         this.myPlayerKey = myPlayerKey;
@@ -222,11 +232,11 @@ export default class TutorialScene extends Phaser.Scene {
         this.otherPlayer.anims.play(`${this.otherPlayer.texture.key}-idleDown`, true);
 
         this.lastSentPlayerState = {
-            x:this.myPlayer.x,
-            y:this.myPlayer.y,
+            x: this.myPlayer.x,
+            y: this.myPlayer.y,
             anim: `${this.myPlayerKey}-idleDown`
         };
-        this.lastUpdateTime = Date.now();        
+        this.lastUpdateTime = Date.now();
 
         // Lanza el primer diálogo
         this.launchDialogueScene(0);
@@ -331,15 +341,16 @@ export default class TutorialScene extends Phaser.Scene {
         }
 
         this.scene.pause();
-        this.scene.launch('DialogueScene', { startIndex, endIndex, callingScene: this.scene.key,
-            onDialogueComplete: () =>{
-                if(caseId===0){
+        this.scene.launch('DialogueScene', {
+            startIndex, endIndex, callingScene: this.scene.key,
+            onDialogueComplete: () => {
+                if (caseId === 0) {
                     this.gameStarted = true;
                     console.log("Dialogo inicial completo. Movimiento habilitado");
                 }
-                this.scene.resume('TutorialScene');
+                
             }
-         });
+        });
     }
 
     // Construye las animaciones de los personajes
@@ -354,58 +365,16 @@ export default class TutorialScene extends Phaser.Scene {
         this.anims.create({ key: `${playerkey}-walk-right`, frames: this.anims.generateFrameNumbers(playerkey, { start: 143, end: 151 }), frameRate: 10, repeat: -1 });
     }
 
-    // Bucle principal de actualización del juego
-    update(time, delta) {
-        this.handlePlayerMovement();
-        // Solo maneja el movimiento del jugador local si ya está asignado
-        if (this.gameStarted && this.myPlayer && this.myControls) {
-            // Almacena el estado actual antes de la actualización de movimiento
-            let previousAnim = this.myPlayer.anims.currentAnim ? this.myPlayer.anims.currentAnim.key : `${this.myPlayerKey}-idleDown`;
-            let previousFlipX = this.myPlayer.flipX;
-            let previousX = this.myPlayer.x;
-            let previousY = this.myPlayer.y;
+    handlePowers() {
+        if (!this.gameStarted || !this.myPlayer) return;
 
-            // Llama al manejador de movimiento para tu jugador
-            this.controlsManager.handlePlayerMovement(
-                this.myPlayer,
-                this.myControls,
-                this.myPlayerKey
-            );
-
-            // Obtén el estado actual después de la actualización de movimiento
-            let currentAnim = this.myPlayer.anims.currentAnim ? this.myPlayer.anims.currentAnim.key : previousAnim;
-            let currentFlipX = this.myPlayer.flipX;
-            let currentX = this.myPlayer.x;
-            let currentY = this.myPlayer.y;
-
-            // Comprueba si el estado del jugador ha cambiado (posición o animación/flipX)
-            if (currentX !== previousX || currentY !== previousY || currentAnim !== previousAnim || currentFlipX !== previousFlipX) {
-                const currentPlayerState = {
-                    x: currentX,
-                    y: currentY,
-                    anim: currentAnim,
-                    flipX: currentFlipX
-                };
-
-                // Envía la actualización al servidor
-                this.webSocketManager.send(
-                    MSG_TYPES.PLAYER_UPDATE, // Usamos el tipo de mensaje 'u' para actualización de jugador
-                    currentPlayerState
-                );
-
-                // Actualiza el último estado enviado para la próxima comparación
-                this.lastSentPlayerState = { ...currentPlayerState };
-            }
-
-            // Lógica para las habilidades (solo si el jugador local es el correcto y la habilidad está disponible)
-            // Ya no hay controles separados para Sighttail y Scentpaw en update, solo myControls.
-            // La lógica de las habilidades se aplica al jugador local (myPlayer)
-            // Habilidad de Visión (Sighttail)
-            if (this.myPlayerKey === 'Sighttail' && this.vistaDisp && this.myControls.keys.power.isDown) {
+        if (this.abilityKey.isDown) {
+            if (this.myPlayerKey === 'Sighttail' && this.vistaDisp) {
                 console.log("Jugador Sighttail usó poder");
                 this.vistaDisp = false;
                 this.huellas.forEach(huella => { huella.setVisible(true); });
                 this.capaV.setVisible(true);
+                
                 this.webSocketManager.send(MSG_TYPES.ABILITY_USE, { playerKey: this.myPlayerKey, ability: 'vision' }); // Enviar al servidor
 
                 this.time.delayedCall(this.durVista, () => {
@@ -418,13 +387,14 @@ export default class TutorialScene extends Phaser.Scene {
                     console.log("Vista disponible");
                 });
             }
-
+            
             // Habilidad de Olfato (Scentpaw)
-            if (this.myPlayerKey === 'Scentpaw' && this.olfatoDisp && this.myControls.keys.power.isDown) {
+            if (this.myPlayerKey === 'Scentpaw' && this.olfatoDisp) {
                 console.log("Jugador Scentpaw usó poder");
                 this.olfatoDisp = false;
                 this.humos.forEach(humo => { humo.setVisible(true); });
                 this.capaO.setVisible(true);
+
                 this.webSocketManager.send(MSG_TYPES.ABILITY_USE, { playerKey: this.myPlayerKey, ability: 'olfato' }); // Enviar al servidor
 
                 this.time.delayedCall(this.durOlfato, () => {
@@ -437,8 +407,19 @@ export default class TutorialScene extends Phaser.Scene {
                     console.log("Olfato disponible");
                 });
             }
-        }
 
+        }
+    }
+
+    // Bucle principal de actualización del juego
+    update(time, delta) {
+
+        if (!this.gameStarted || !this.myPlayer) return;
+
+        this.handlePlayerMovement();
+        this.handlePositionUpdates();
+        this.handlePowers();
+        
         // Centrar cámara entre los dos jugadores
         // **Esto solo debe ocurrir si ambos jugadores (myPlayer y otherPlayer) han sido inicializados.**
         if (this.myPlayer && this.otherPlayer) {
@@ -453,5 +434,50 @@ export default class TutorialScene extends Phaser.Scene {
             const centerY = this.scale.height / 2;
             this.cameras.main.centerOn(centerX, centerY);
         }
+    }
+
+    handlePlayerMovement() {
+        const cursors = this.input.keyboard.createCursorsKeys();
+        const speed = 100;
+
+        this.myPlayer.body.setVelocity(0);
+
+        if (cursors.left.isDown) {
+            this.myPlayer.body.setVelocityX(-speed);
+        } else if (cursors.right.isDown) {
+            this.myPlayer.body.setVelocityX(speed);
+        }
+
+        if (cursors.up.isDown) {
+            this.myPlayer.body.setVelocityY(-speed);
+        } else if (cursors.down.isDown) {
+            this.myPlayer.body.setVelocityY(speed);
+        }
+    }
+
+    handlePositionUpdates() {
+        const currentTime = Date.now();
+        if (currentTime - this.lastUpdateTime >= this.POSITION_UPDATE_INTERVAL) {
+            const dx = Maths.abs(this.myPlayer.x - this.lastSentPlayerPosition.x);
+            const dy = Maths.abs(this.myPlayer.y - this.lastSentPlayerPosition.y);
+
+            if (dx > this.POSITION_THRESHOLD || dy > this.POSITION_THRESHOLD) {
+                this.sendPosition();
+                this.lastUpdateTime = currentTime;
+                this.lastSentPlayerPosition = { x: this.myPlayer.x, y: this.myPlayer.y };
+            }
+
+        }
+    }
+
+
+    sendPlayerState(){
+        this.webSocketManager.send(MSG_TYPES.PLAYER_UPDATE, {
+            playerId: this.myPlayerId,
+            x: Math.round(this.myPlayer.x),
+            y: Math.round(this.myPlayer.y),
+            anim: this.myPlayer.anims.currentAnim ? this.myPlayer.anims.currentAnim.key : `${this.myPlayerKey}-idleDown`,
+            flipX: this.myPlayer.flipX
+        });
     }
 }
