@@ -1,5 +1,7 @@
 // WebSocketMessages.js
 export const MSG_TYPES = {
+    INIT: 'i',        // Initialize game state
+    POS: 'p',
     PLAYER_JOIN: 'j',
     PLAYER_UPDATE: 'u',
     GAME_START: 's',

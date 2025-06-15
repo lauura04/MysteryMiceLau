@@ -1,22 +1,26 @@
 import ControlsManager from "./controlesJug.js";
-import { MSG_TYPES } from './WebSocketMessages.js' // Asegúrate de que este archivo define tus tipos de mensaje
+import { MSG_TYPES } from './WebSocketMessages.js' 
 import WebsSocketManger from "./WebSocketManager.js"; // Asegúrate de que el nombre del archivo es exactamente este
 
 export default class TutorialScene extends Phaser.Scene {
     constructor() {
         super({ key: 'TutorialScene' });
-        this.webSocketManager = null; // **CORREGIDO: Renombrado a 'webSocketManager' para consistencia.**
-        this.gameId = null; // Asignar cuando el servidor lo envíe
-        this.myPlayerId = null;
-        this.myPlayerKey = null;
+       
+        this.myPlayer = null; 
+        this.otherPlayer = null; 
+        this.myControls = null; 
 
-        this.myPlayer = null; // El sprite del jugador que controlas localmente
-        this.otherPlayer = null; // El sprite del otro jugador (controlado por el servidor)
-        this.myControls = null; // Los controles específicos para tu jugador
+        this.waitingText = null;
 
-        // Objeto para almacenar el último estado enviado del jugador.
-        // Esto se usa para evitar enviar mensajes de actualización si no hay cambios.
-        this.lastSentPlayerState = { x: 0, y: 0, anim: '', flipX: false };
+        this.gameStarted = false;
+
+        this.playerId = null;
+        
+        this.lastSentPlayerState = { x: 0, y: 0, anim: ''};
+
+        this.POSITION_UPDATE_INTERVAL = 50;
+
+        this.POSITION_THRESHOLD = 2;
     }
 
     preload() {
@@ -46,40 +50,31 @@ export default class TutorialScene extends Phaser.Scene {
     }
 
     create() {
+        this.socket = new WebSocket("ws://" + location.host + "/ws");
+
         this.controlsManager = new ControlsManager(this);
-        // La llamada a `initializeControls(this)` debería estar dentro del constructor de ControlsManager
-        // o si no, solo necesitas la instancia y los controles ya están listos.
-        // this.controlsManager.initializeControls(this); // Probablemente redundante aquí
 
         const centerX = this.scale.width / 2;
         const centerY = this.scale.height / 2;
 
-        // Inicialización de WebSockets
-        this.webSocketManager = new WebsSocketManger(this); // **CORREGIDO: Usamos el nombre 'webSocketManager' consistente**
-        this.webSocketManager.connect();
-
         // Elementos de espera mientras se une el otro jugador
-        this.waitingText = this.add.text(0.63*centerX, 1.35*centerY, 'Esperando a otro jugador', { // **CORREGIDO: Centrado el texto de espera**
-            font: '30px mousy', // **Ajustado el tamaño de la fuente para que se vea mejor centrado**
+        this.waitingText = this.add.text(0.63*centerX, 1.35*centerY, 'Esperando a otro jugador', { 
+            font: '30px mousy', 
             color: '#ffffff',
             align: 'center'
-        }).setDepth(10); // **Añadido setOrigin(0.5) para centrarlo realmente**
+        }).setDepth(10); 
 
-
-        // Crear personajes (inicialmente invisibles y sin física activa, inamovibles)
+        // Crear personajes 
         this.sighttail = this.physics.add.sprite(1.56 * centerX, 0.2 * centerY, 'Sighttail')
             .setScale(2)
             .setSize(40, 30)
-            .setOffset(12, 20)
-            .setVisible(false)
-            .setImmovable(true); // **Añadido: inamovible hasta que la partida comience**
+            .setOffset(12, 20); 
 
         this.scentpaw = this.physics.add.sprite(1.42 * centerX, 0.2 * centerY, 'Scentpaw')
             .setScale(2)
             .setSize(40, 30)
             .setOffset(12, 20)
-            .setVisible(false)
-            .setImmovable(true); // **Añadido: inamovible hasta que la partida comience**
+            .setVisible(false); 
 
 
         // Creamos unos arrays para meter las imagenes de las huellas y el humo
@@ -115,14 +110,11 @@ export default class TutorialScene extends Phaser.Scene {
         // Agujero (inicialmente invisible)
         this.agujero = this.physics.add.image(1.1 * centerX, 0.2 * centerY, 'agujero').setScale(1.7).setVisible(false);
 
-        // **IMPORTANTE: Las colisiones con los límites del mapa ahora se configuran para ambos sprites.**
-        // Cuando se asignen this.myPlayer y this.otherPlayer, sus cuerpos de física estarán activos y podrán colisionar.
         this.physics.add.collider(this.sighttail, cripta);
         this.physics.add.collider(this.scentpaw, cripta);
         this.physics.add.collider(this.sighttail, cementerio);
         this.physics.add.collider(this.scentpaw, cementerio);
 
-        // **Eliminado: La capa de oscuridad fija. Si quieres que la vista cambie esto, debe ser manejado por la habilidad.**
         const oscuridad = this.add.rectangle(centerX, centerY, 2 * centerX, 2 * centerY, 0x000000, 0.5);
 
         // Inicialización de huellas (invisibles al inicio)
@@ -162,9 +154,7 @@ export default class TutorialScene extends Phaser.Scene {
         this.capaV = this.add.circle(0.56 * centerX, 1.4 * centerY, 32, 0x000000, 0.5).setScrollFactor(0).setVisible(true);
         this.capaO = this.add.circle(0.56 * centerX, 1.25 * centerY, 32, 0x000000, 0.5).setScrollFactor(0).setVisible(true);
 
-        // **IMPORTANTE: Los listeners de teclado se añaden ONCE y se manejan solo para tu myPlayer.**
-        // La lógica de interacción con agujero ya no se duplica en `checkAgujeroInteraction`.
-        this.input.keyboard.on('keydown-E', () => {
+       this.input.keyboard.on('keydown-E', () => {
             if (this.myPlayer && this.myPlayerKey === 'Sighttail' && this.agujero.visible && this.physics.overlap(this.myPlayer, this.agujero)) {
                 this.webSocketManager.send(MSG_TYPES.AGUJERO_INTERACT, { playerKey: this.myPlayerKey });
             }
@@ -176,18 +166,147 @@ export default class TutorialScene extends Phaser.Scene {
             }
         });
 
-        // **Crear animaciones para ambos personajes al inicio.**
         this.createAnimations('Sighttail');
         this.createAnimations('Scentpaw');
+
+        this.setupWebsocket();
+    }
+
+
+
+    setupWebsocket(){
+        this.socket.onopen = () => {
+            console.log('Conected to server');
+        };
+
+        this.socket.onmessage = (event) => {
+            const type = event.data.charAt(0);
+            const data = event.data.length > 1 ? JSON.parse(event.data.substring(1)) : null;
+
+            switch(type) {
+                case MSG_TYPES.INIT:
+                    this.handleInit(data);
+                    break;
+                case MSG_TYPES.POS:
+                    this.handlePosition(data);
+                    break;
+                case MSG_TYPES.OVER: //aqui no seria necesario, seria en el otro
+                    this.handleGameOver(data);
+            }
+        };
+
+        this.socket.onclose = () =>{
+            this.gameStarted = false;
+        };
+    }
+
+  
+
+    update(time, delta) {
+        // Solo maneja el movimiento del jugador local si ya está asignado
+        if (this.myPlayer && this.myControls) {
+            // Almacena el estado actual antes de la actualización de movimiento
+            let previousAnim = this.myPlayer.anims.currentAnim ? this.myPlayer.anims.currentAnim.key : `${this.myPlayerKey}-idleDown`;
+            let previousFlipX = this.myPlayer.flipX;
+            let previousX = this.myPlayer.x;
+            let previousY = this.myPlayer.y;
+
+            // Llama al manejador de movimiento para tu jugador
+            this.controlsManager.handlePlayerMovement(
+                this.myPlayer,
+                this.myControls,
+                this.myPlayerKey
+            );
+
+            // Obtén el estado actual después de la actualización de movimiento
+            let currentAnim = this.myPlayer.anims.currentAnim ? this.myPlayer.anims.currentAnim.key : previousAnim;
+            let currentFlipX = this.myPlayer.flipX;
+            let currentX = this.myPlayer.x;
+            let currentY = this.myPlayer.y;
+
+            // Comprueba si el estado del jugador ha cambiado (posición o animación/flipX)
+            if (currentX !== previousX || currentY !== previousY || currentAnim !== previousAnim || currentFlipX !== previousFlipX) {
+                const currentPlayerState = {
+                    x: currentX,
+                    y: currentY,
+                    anim: currentAnim,
+                    flipX: currentFlipX
+                };
+
+                // Envía la actualización al servidor
+                this.webSocketManager.send(
+                    MSG_TYPES.PLAYER_UPDATE, // Usamos el tipo de mensaje 'u' para actualización de jugador
+                    currentPlayerState
+                );
+
+                // Actualiza el último estado enviado para la próxima comparación
+                this.lastSentPlayerState = { ...currentPlayerState };
+            }
+
+            // Lógica para las habilidades (solo si el jugador local es el correcto y la habilidad está disponible)
+            // Ya no hay controles separados para Sighttail y Scentpaw en update, solo myControls.
+            // La lógica de las habilidades se aplica al jugador local (myPlayer)
+            // Habilidad de Visión (Sighttail)
+            if (this.myPlayerKey === 'Sighttail' && this.vistaDisp && this.myControls.keys.power.isDown) {
+                console.log("Jugador Sighttail usó poder");
+                this.vistaDisp = false;
+                this.huellas.forEach(huella => { huella.setVisible(true); });
+                this.capaV.setVisible(true);
+                this.webSocketManager.send(MSG_TYPES.ABILITY_USE, { playerKey: this.myPlayerKey, ability: 'vision' }); // Enviar al servidor
+
+                this.time.delayedCall(this.durVista, () => {
+                    this.huellas.forEach(huella => { huella.setVisible(false); });
+                });
+
+                this.time.delayedCall(this.cargaVista, () => {
+                    this.vistaDisp = true;
+                    this.capaV.setVisible(false);
+                    console.log("Vista disponible");
+                });
+            }
+
+            // Habilidad de Olfato (Scentpaw)
+            if (this.myPlayerKey === 'Scentpaw' && this.olfatoDisp && this.myControls.keys.power.isDown) {
+                console.log("Jugador Scentpaw usó poder");
+                this.olfatoDisp = false;
+                this.humos.forEach(humo => { humo.setVisible(true); });
+                this.capaO.setVisible(true);
+                this.webSocketManager.send(MSG_TYPES.ABILITY_USE, { playerKey: this.myPlayerKey, ability: 'olfato' }); // Enviar al servidor
+
+                this.time.delayedCall(this.durOlfato, () => {
+                    this.humos.forEach(humo => { humo.setVisible(false); });
+                });
+
+                this.time.delayedCall(this.cargaOlfato, () => {
+                    this.olfatoDisp = true;
+                    this.capaO.setVisible(false);
+                    console.log("Olfato disponible");
+                });
+            }
+        }
+
+        // Centrar cámara entre los dos jugadores
+        // **Esto solo debe ocurrir si ambos jugadores (myPlayer y otherPlayer) han sido inicializados.**
+        if (this.myPlayer && this.otherPlayer) {
+            const centerjX = (this.myPlayer.x + this.otherPlayer.x) / 2;
+            const centerjY = (this.myPlayer.y + this.otherPlayer.y) / 2;
+            this.cameras.main.centerOn(centerjX, centerjY);
+        } else {
+            // Si los jugadores aún no están inicializados (al inicio), centra en un punto fijo o solo en myPlayer si existe.
+            // Mantén la cámara centrada en el punto inicial del "esperando a otro jugador" o simplemente no muevas la cámara.
+            // Para este caso, ya que tienes un texto fijo, puedes dejarla centrada en el punto inicial.
+            const centerX = this.scale.width / 2;
+            const centerY = this.scale.height / 2;
+            this.cameras.main.centerOn(centerX, centerY);
+        }
     }
 
     // Método llamado por WebSocketManager cuando el servidor indica que el juego ha comenzado
-    startGame(gameId, myPlayerId, myPlayerKey, startX, startY, otherPlayerStartX, otherPlayerStartY) { // **Añadido startX, startY para otherPlayer**
-        this.gameId = gameId;
+    startGame(gameId, myPlayerId, myPlayerKey) { 
+       
         this.myPlayerId = myPlayerId;
         this.myPlayerKey = myPlayerKey;
 
-        this.waitingText.setVisible(false); // Oculta el mensaje de espera
 
         const centerX = this.scale.width / 2;
         const centerY = this.scale.height / 2;
@@ -328,104 +447,5 @@ export default class TutorialScene extends Phaser.Scene {
         this.anims.create({ key: `${playerkey}-walk-left`, frames: this.anims.generateFrameNumbers(playerkey, { start: 117, end: 125 }), frameRate: 10, repeat: -1 });
         this.anims.create({ key: `${playerkey}-walk-right`, frames: this.anims.generateFrameNumbers(playerkey, { start: 143, end: 151 }), frameRate: 10, repeat: -1 });
     }
-
-    // Bucle principal de actualización del juego
-    update(time, delta) {
-        // Solo maneja el movimiento del jugador local si ya está asignado
-        if (this.myPlayer && this.myControls) {
-            // Almacena el estado actual antes de la actualización de movimiento
-            let previousAnim = this.myPlayer.anims.currentAnim ? this.myPlayer.anims.currentAnim.key : `${this.myPlayerKey}-idleDown`;
-            let previousFlipX = this.myPlayer.flipX;
-            let previousX = this.myPlayer.x;
-            let previousY = this.myPlayer.y;
-
-            // Llama al manejador de movimiento para tu jugador
-            this.controlsManager.handlePlayerMovement(
-                this.myPlayer,
-                this.myControls,
-                this.myPlayerKey
-            );
-
-            // Obtén el estado actual después de la actualización de movimiento
-            let currentAnim = this.myPlayer.anims.currentAnim ? this.myPlayer.anims.currentAnim.key : previousAnim;
-            let currentFlipX = this.myPlayer.flipX;
-            let currentX = this.myPlayer.x;
-            let currentY = this.myPlayer.y;
-
-            // Comprueba si el estado del jugador ha cambiado (posición o animación/flipX)
-            if (currentX !== previousX || currentY !== previousY || currentAnim !== previousAnim || currentFlipX !== previousFlipX) {
-                const currentPlayerState = {
-                    x: currentX,
-                    y: currentY,
-                    anim: currentAnim,
-                    flipX: currentFlipX
-                };
-
-                // Envía la actualización al servidor
-                this.webSocketManager.send(
-                    MSG_TYPES.PLAYER_UPDATE, // Usamos el tipo de mensaje 'u' para actualización de jugador
-                    currentPlayerState
-                );
-
-                // Actualiza el último estado enviado para la próxima comparación
-                this.lastSentPlayerState = { ...currentPlayerState };
-            }
-
-            // Lógica para las habilidades (solo si el jugador local es el correcto y la habilidad está disponible)
-            // Ya no hay controles separados para Sighttail y Scentpaw en update, solo myControls.
-            // La lógica de las habilidades se aplica al jugador local (myPlayer)
-            // Habilidad de Visión (Sighttail)
-            if (this.myPlayerKey === 'Sighttail' && this.vistaDisp && this.myControls.keys.power.isDown) {
-                console.log("Jugador Sighttail usó poder");
-                this.vistaDisp = false;
-                this.huellas.forEach(huella => { huella.setVisible(true); });
-                this.capaV.setVisible(true);
-                this.webSocketManager.send(MSG_TYPES.ABILITY_USE, { playerKey: this.myPlayerKey, ability: 'vision' }); // Enviar al servidor
-
-                this.time.delayedCall(this.durVista, () => {
-                    this.huellas.forEach(huella => { huella.setVisible(false); });
-                });
-
-                this.time.delayedCall(this.cargaVista, () => {
-                    this.vistaDisp = true;
-                    this.capaV.setVisible(false);
-                    console.log("Vista disponible");
-                });
-            }
-
-            // Habilidad de Olfato (Scentpaw)
-            if (this.myPlayerKey === 'Scentpaw' && this.olfatoDisp && this.myControls.keys.power.isDown) {
-                console.log("Jugador Scentpaw usó poder");
-                this.olfatoDisp = false;
-                this.humos.forEach(humo => { humo.setVisible(true); });
-                this.capaO.setVisible(true);
-                this.webSocketManager.send(MSG_TYPES.ABILITY_USE, { playerKey: this.myPlayerKey, ability: 'olfato' }); // Enviar al servidor
-
-                this.time.delayedCall(this.durOlfato, () => {
-                    this.humos.forEach(humo => { humo.setVisible(false); });
-                });
-
-                this.time.delayedCall(this.cargaOlfato, () => {
-                    this.olfatoDisp = true;
-                    this.capaO.setVisible(false);
-                    console.log("Olfato disponible");
-                });
-            }
-        }
-
-        // Centrar cámara entre los dos jugadores
-        // **Esto solo debe ocurrir si ambos jugadores (myPlayer y otherPlayer) han sido inicializados.**
-        if (this.myPlayer && this.otherPlayer) {
-            const centerjX = (this.myPlayer.x + this.otherPlayer.x) / 2;
-            const centerjY = (this.myPlayer.y + this.otherPlayer.y) / 2;
-            this.cameras.main.centerOn(centerjX, centerjY);
-        } else {
-            // Si los jugadores aún no están inicializados (al inicio), centra en un punto fijo o solo en myPlayer si existe.
-            // Mantén la cámara centrada en el punto inicial del "esperando a otro jugador" o simplemente no muevas la cámara.
-            // Para este caso, ya que tienes un texto fijo, puedes dejarla centrada en el punto inicial.
-            const centerX = this.scale.width / 2;
-            const centerY = this.scale.height / 2;
-            this.cameras.main.centerOn(centerX, centerY);
-        }
-    }
+    
 }
