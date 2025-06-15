@@ -5,18 +5,31 @@ import WebsSocketManger from "./WebSocketManager.js"; // Asegúrate de que el no
 export default class TutorialScene extends Phaser.Scene {
     constructor() {
         super({ key: 'TutorialScene' });
-        this.webSocketManager = null; // **CORREGIDO: Renombrado a 'webSocketManager' para consistencia.**
+
+        this.webSocketManager = null;
+        this.dialogueIntroLaunched = false;
+        this.gameStarted = false;
+        this.gameReadyPayload = null;
+
         this.gameId = null; // Asignar cuando el servidor lo envíe
-        this.myPlayerId = null;
         this.myPlayerKey = null;
 
         this.myPlayer = null; // El sprite del jugador que controlas localmente
         this.otherPlayer = null; // El sprite del otro jugador (controlado por el servidor)
         this.myControls = null; // Los controles específicos para tu jugador
 
+        // Propiedades para los objetos interactuables del tutorial
+        this.door = null;
+        this.hole = null;
+
         // Objeto para almacenar el último estado enviado del jugador.
         // Esto se usa para evitar enviar mensajes de actualización si no hay cambios.
         this.lastSentPlayerState = { x: 0, y: 0, anim: '', flipX: false };
+        this.lastUpdateTime = 0;
+        this.POSITION_UPDATE_INTERVAL = 50;
+        this.POSITION_THRESHOLD = 2;
+
+        this.otherPlayerCurrentAnim='';
     }
 
     preload() {
@@ -47,10 +60,7 @@ export default class TutorialScene extends Phaser.Scene {
 
     create() {
         this.controlsManager = new ControlsManager(this);
-        // La llamada a `initializeControls(this)` debería estar dentro del constructor de ControlsManager
-        // o si no, solo necesitas la instancia y los controles ya están listos.
-        // this.controlsManager.initializeControls(this); // Probablemente redundante aquí
-
+        
         const centerX = this.scale.width / 2;
         const centerY = this.scale.height / 2;
 
@@ -59,27 +69,13 @@ export default class TutorialScene extends Phaser.Scene {
         this.webSocketManager.connect();
 
         // Elementos de espera mientras se une el otro jugador
-        this.waitingText = this.add.text(0.63*centerX, 1.35*centerY, 'Esperando a otro jugador', { // **CORREGIDO: Centrado el texto de espera**
+        this.waitingText = this.add.text(0.63 * centerX, 1.35 * centerY, 'Esperando a otro jugador', { // **CORREGIDO: Centrado el texto de espera**
             font: '30px mousy', // **Ajustado el tamaño de la fuente para que se vea mejor centrado**
             color: '#ffffff',
             align: 'center'
-        }).setDepth(10); // **Añadido setOrigin(0.5) para centrarlo realmente**
+        }).setDepth(10);
 
 
-        // Crear personajes (inicialmente invisibles y sin física activa, inamovibles)
-        this.sighttail = this.physics.add.sprite(1.56 * centerX, 0.2 * centerY, 'Sighttail')
-            .setScale(2)
-            .setSize(40, 30)
-            .setOffset(12, 20)
-            .setVisible(false)
-            .setImmovable(true); // **Añadido: inamovible hasta que la partida comience**
-
-        this.scentpaw = this.physics.add.sprite(1.42 * centerX, 0.2 * centerY, 'Scentpaw')
-            .setScale(2)
-            .setSize(40, 30)
-            .setOffset(12, 20)
-            .setVisible(false)
-            .setImmovable(true); // **Añadido: inamovible hasta que la partida comience**
 
 
         // Creamos unos arrays para meter las imagenes de las huellas y el humo
@@ -106,6 +102,22 @@ export default class TutorialScene extends Phaser.Scene {
 
         // Fondo del escenario
         const escenario = this.add.image(centerX, centerY, "escenario");
+
+        // Crear personajes (inicialmente invisibles y sin física activa, inamovibles)
+        this.sighttail = this.physics.add.sprite(1.56 * centerX, 0.2 * centerY, 'Sighttail')
+            .setScale(2)
+            .setSize(40, 30)
+            .setOffset(12, 20)
+            .setVisible(false)
+            .setImmovable(true); // **Añadido: inamovible hasta que la partida comience**
+
+        this.scentpaw = this.physics.add.sprite(1.42 * centerX, 0.2 * centerY, 'Scentpaw')
+            .setScale(2)
+            .setSize(40, 30)
+            .setOffset(12, 20)
+            .setVisible(false)
+            .setImmovable(true); // **Añadido: inamovible hasta que la partida comience**
+
 
         const worldWidthT = escenario.displayWidth;
         const worldHeightT = escenario.displayHeight;
@@ -179,10 +191,12 @@ export default class TutorialScene extends Phaser.Scene {
         // **Crear animaciones para ambos personajes al inicio.**
         this.createAnimations('Sighttail');
         this.createAnimations('Scentpaw');
+
+
     }
 
     // Método llamado por WebSocketManager cuando el servidor indica que el juego ha comenzado
-    startGame(gameId, myPlayerId, myPlayerKey, startX, startY, otherPlayerStartX, otherPlayerStartY) { // **Añadido startX, startY para otherPlayer**
+    startGame(gameId, myPlayerId, myPlayerKey) { 
         this.gameId = gameId;
         this.myPlayerId = myPlayerId;
         this.myPlayerKey = myPlayerKey;
@@ -200,14 +214,24 @@ export default class TutorialScene extends Phaser.Scene {
         } else { // myPlayerKey === 'Scentpaw'
             this.myPlayer = this.scentpaw;
             this.otherPlayer = this.sighttail;
-            this.myControls = this.controlsManager.controls2;
+            this.myControls = this.controlsManager.controls2; // Scentpaw uses controls2
         }
 
-        // Calcula las posiciones de inicio basadas en el centerX, centerY del cliente
-        this.myPlayer.setPosition(1.56 * centerX, 0.2 * centerY);
-        this.otherPlayer.setPosition(1.42 * centerX, 0.2 * centerY);
+        // Set initial idle animation for both players
+        this.myPlayer.anims.play(`${this.myPlayerKey}-idleDown`, true);
+        this.otherPlayer.anims.play(`${this.otherPlayer.texture.key}-idleDown`, true);
 
+        this.lastSentPlayerState = {
+            x:this.myPlayer.x,
+            y:this.myPlayer.y,
+            anim: `${this.myPlayerKey}-idleDown`
+        };
+        this.lastUpdateTime = Date.now();        
 
+        // Lanza el primer diálogo
+        this.launchDialogueScene(0);
+
+        console.log(`Partida ${this.gameId} iniciada. Eres ${this.myPlayerKey}`);
         // Hace visibles y activas las físicas para ambos jugadores
         this.myPlayer.setVisible(true).setImmovable(false);
         this.otherPlayer.setVisible(true).setImmovable(false);
@@ -216,19 +240,12 @@ export default class TutorialScene extends Phaser.Scene {
         this.otherPlayer.body.setVelocity(0, 0);
         this.otherPlayer.body.setAllowGravity(false); // Si no usas gravedad
 
-        console.log(`Partida ${this.gameId} iniciada. Eres ${this.myPlayerKey}`);
-
-        // Lanza el primer diálogo
-        this.launchDialogueScene(0);
 
         // Configuración de la puerta
-        
         this.puerta = this.add.rectangle(0.5 * centerX, 0.55 * centerY, 0.2 * centerX, 0.45 * centerY, 0x000000, 0).setOrigin(0, 0);
         this.physics.add.existing(this.puerta, true);
         this.puertaInteractuable = false;
 
-        // Collider para la puerta (solo el jugador local puede interactuar inicialmente)
-        // **CORREGIDO: Un solo collider para myPlayer y la puerta.**
         this.physics.add.collider(this.myPlayer, this.puerta, () => this.handlePuertaCollision());
     }
 
@@ -314,7 +331,15 @@ export default class TutorialScene extends Phaser.Scene {
         }
 
         this.scene.pause();
-        this.scene.launch('DialogueScene', { startIndex, endIndex, callingScene: this.scene.key });
+        this.scene.launch('DialogueScene', { startIndex, endIndex, callingScene: this.scene.key,
+            onDialogueComplete: () =>{
+                if(caseId===0){
+                    this.gameStarted = true;
+                    console.log("Dialogo inicial completo. Movimiento habilitado");
+                }
+                this.scene.resume('TutorialScene');
+            }
+         });
     }
 
     // Construye las animaciones de los personajes
@@ -331,8 +356,9 @@ export default class TutorialScene extends Phaser.Scene {
 
     // Bucle principal de actualización del juego
     update(time, delta) {
+        this.handlePlayerMovement();
         // Solo maneja el movimiento del jugador local si ya está asignado
-        if (this.myPlayer && this.myControls) {
+        if (this.gameStarted && this.myPlayer && this.myControls) {
             // Almacena el estado actual antes de la actualización de movimiento
             let previousAnim = this.myPlayer.anims.currentAnim ? this.myPlayer.anims.currentAnim.key : `${this.myPlayerKey}-idleDown`;
             let previousFlipX = this.myPlayer.flipX;

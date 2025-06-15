@@ -6,6 +6,10 @@ export default class WebsSocketManger {
         this.ws = null; // conexión websocket
         this.playerId = null;
         this.playerKey = null; // 'Sighttail' o 'Scentpaw'
+        this.lastUpdateTime = 0;
+
+        this.POSITION_UPDATE_INTERVAL = 50;
+        this.lastSentPosition = {x:0, y:0};
     }
 
     connect(gameId, playerId, playerKey) {
@@ -47,9 +51,7 @@ export default class WebsSocketManger {
                         this.gameScene.startGame(
                             data.gameId,
                             data.playerId, // Esto es el ID de sesión del servidor
-                            data.playerKey,
-                            data.startX,    // <--- Pasar startX
-                            data.startY     // <--- Pasar startY
+                            data.playerKey                            
                         );
                         // Asegúrate de que el playerId y playerKey del manager ya están asignados al conectarse
                         // O actualízalos aquí si el servidor envía los "oficiales"
@@ -141,6 +143,12 @@ export default class WebsSocketManger {
 
     // manejar actualización de la posición de un jugador
     handlePlayerUpdate(data) {
+        const currentTime = Date.now();
+        /*
+        if(currentTime - this.lastUpdateTime >= this.POSITION_UPDATE_INTERVAL){
+            const dx = Math.abs(this.player.x - )
+        }*/
+
         const { playerId, x, y, anim, flipX } = data;
 
         // Si el mensaje es de nuestro propio jugador, no hacemos nada porque ya lo manejamos localmente
