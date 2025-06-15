@@ -27,3 +27,11 @@ xczx,x,0
 asfasdgf,a,0
 sfsdg,s,0
 asfsdgdg,a,0
+<<<<<<< Updated upstream
+=======
+asfasdf,a,0
+r,r,0
+E,E,0
+AA,A,0
+A,A,0
+>>>>>>> Stashed changes

@@ -211,7 +211,121 @@ export default class TutorialScene extends Phaser.Scene {
         });
     }
 
+<<<<<<< Updated upstream
     //Gestión de dialogos
+=======
+    // Método llamado por WebSocketManager cuando el servidor indica que el juego ha comenzado
+    startGame(gameId, myPlayerId, myPlayerKey) { 
+        this.gameId = gameId;
+        this.myPlayerId = myPlayerId;
+        this.myPlayerKey = myPlayerKey;
+
+        this.waitingText.setVisible(false); // Oculta el mensaje de espera
+
+        // Configuración de la puerta
+        const centerX = this.scale.width / 2;
+        const centerY = this.scale.height / 2;
+        
+
+        // Asigna los sprites de los jugadores según la clave recibida del servidor
+        if (this.myPlayerKey === 'Sighttail') {
+            this.myPlayer = this.sighttail;
+            this.otherPlayer = this.scentpaw;
+            this.myControls = this.controlsManager.controls1;
+        } else { // myPlayerKey === 'Scentpaw'
+            this.myPlayer = this.scentpaw;
+            this.otherPlayer = this.sighttail;
+            this.myControls = this.controlsManager.controls2;
+        }
+
+        // Calcula las posiciones de inicio basadas en el centerX, centerY del cliente
+        this.myPlayer.setPosition(1.56 * centerX, 0.2 * centerY);
+        this.otherPlayer.setPosition(1.42 * centerX, 0.2 * centerY);
+
+
+        // Hace visibles y activas las físicas para ambos jugadores
+        this.myPlayer.setVisible(true).setImmovable(false);
+        this.otherPlayer.setVisible(true).setImmovable(false);
+
+        // Asegura que el otro jugador no tenga velocidad por defecto
+        this.otherPlayer.body.setVelocity(0, 0);
+        this.otherPlayer.body.setAllowGravity(false); // Si no usas gravedad
+
+        console.log(`Partida ${this.gameId} iniciada. Eres ${this.myPlayerKey}`);
+
+        // Lanza el primer diálogo
+        this.launchDialogueScene(0);
+
+        
+        this.puerta = this.add.rectangle(0.5 * centerX, 0.55 * centerY, 0.2 * centerX, 0.45 * centerY, 0x000000, 0).setOrigin(0, 0);
+        this.physics.add.existing(this.puerta, true);
+        this.puertaInteractuable = false;
+
+        // Collider para la puerta (solo el jugador local puede interactuar inicialmente)
+        // **CORREGIDO: Un solo collider para myPlayer y la puerta.**
+        this.physics.add.collider(this.myPlayer, this.puerta, () => this.handlePuertaCollision());
+    }
+
+    // Este método es llamado por el WebSocketManager cuando recibe un mensaje de actualización de otro jugador
+    handlePlayerUpdate(data) {
+        const { playerId, x, y, anim, flipX } = data;
+
+        // Si el mensaje es de nuestro propio jugador, no hacemos nada porque ya lo manejamos localmente en update()
+        if (playerId === this.myPlayerId) {
+            return;
+        }
+
+        // Si es el otro jugador, actualiza su posición y animación
+        if (this.otherPlayer && this.otherPlayer.body) {
+            this.otherPlayer.body.setVelocity(0, 0); // Detén cualquier movimiento residual
+            this.otherPlayer.setPosition(x, y); // Establece la posición directamente
+            if (this.otherPlayer.anims && anim) {
+                this.otherPlayer.anims.play(anim, true);
+            }
+            this.otherPlayer.setFlipX(flipX);
+        } else {
+            console.warn("No se pudo encontrar el sprite del otro jugador para actualizar.", data);
+        }
+    }
+
+    // Método llamado cuando el jugador local colisiona con la puerta
+    handlePuertaCollision() {
+        if (this.puertaInteractuable === false) {
+            // CORREGIDO: Usamos el tipo de mensaje definido en MSG_TYPES
+            this.webSocketManager.send(MSG_TYPES.DOOR_INTERACT, { playerKey: this.myPlayerKey, playerId: this.myPlayerId });
+        }
+    }
+
+    // Método llamado por WebSocketManager cuando el servidor confirma la interacción con la puerta
+    handleDoorInteractionConfirmed() {
+        if (this.puertaInteractuable === false) {
+            this.puertaInteractuable = true;
+            this.launchDialogueScene(1);
+            console.log("Puerta interactuada, lanzando diálogo para ambos.");
+
+            // Activar agujero, etc., aquí si corresponde después del diálogo de la puerta
+            this.agujero.setVisible(true);
+            this.capaO.setVisible(false); // Suponiendo que estas capas se desactivan
+            this.capaV.setVisible(false);
+            this.vistaDisp = true;
+            this.olfatoDisp = true;
+        }
+    }
+
+    // Método llamado por WebSocketManager cuando el servidor confirma la interacción con el agujero
+    handleAgujeroInteractionConfirmed(data) {
+        console.log("Servidor confirma interacción con el agujero.");
+        this.launchDialogueScene(data.dialogueIndex || 2); // Lanza el diálogo 2 por defecto o el índice enviado por el servidor
+
+        // Transición a GameScene después de un breve retraso
+        this.time.delayedCall(500, () => {
+            this.scene.stop('TutorialScene');
+            this.scene.start('GameScene');
+        });
+    }
+
+    // Gestión de diálogos
+>>>>>>> Stashed changes
     launchDialogueScene(caseId) {
         let startIndex = 0;
         let endIndex = 0;
