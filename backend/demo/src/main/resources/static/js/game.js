@@ -1,5 +1,6 @@
 import ControlsManager from "./controlesJug.js";
 import ChatManager from './ChatManager.js';
+import { MSG_TYPES } from './WebSocketMessages.js'
 
 export default class GameScene extends Phaser.Scene {
     constructor() {

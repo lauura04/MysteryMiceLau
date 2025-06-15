@@ -1,4 +1,4 @@
-class DialogueScene extends Phaser.Scene {
+export default class DialogueScene extends Phaser.Scene {
         constructor() {
                 super({ key: 'DialogueScene' });
         }

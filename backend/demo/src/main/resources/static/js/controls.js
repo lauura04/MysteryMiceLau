@@ -1,4 +1,4 @@
-class ControlScene extends Phaser.Scene{
+export default class ControlScene extends Phaser.Scene{
     constructor(){
         super({key: 'ControlScene'});
     }

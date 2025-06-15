@@ -1,4 +1,4 @@
-class PreviewScene extends Phaser.Scene {
+export default class PreviewScene extends Phaser.Scene {
     constructor() {
         super({ key: 'PreviewScene' });
     }

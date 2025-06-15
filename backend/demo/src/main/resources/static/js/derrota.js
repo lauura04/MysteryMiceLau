@@ -1,4 +1,4 @@
-class LoseScene extends Phaser.Scene{
+export default class LoseScene extends Phaser.Scene{
     constructor(){
         super({key: 'LoseScene'});
     }

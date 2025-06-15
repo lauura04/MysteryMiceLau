@@ -3,21 +3,9 @@
 
 <head>
     <link rel="stylesheet" href="mystile.css">
+    <!-- Asegúrate de que JQuery se cargue antes que cualquier script que lo use, como ChatManager.js -->
+    <script src="https://code.jquery.com/jquery-2.2.0.min.js"></script> 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.86.0/phaser.min.js"></script>
-    <script src="https://code.jquery.com/jquery-2.2.0.min.js"></script>
-    <script type="module" src="js/game.js"></script>
-    <script src="js/intro.js"></script>
-    <script src="js/end.js"></script>
-    <script src="js/controls.js"></script>
-    <script src="js/preview.js"></script>
-    <script src="js/dialogo.js"></script>
-    <script src="js/credit.js"></script>
-    <script src="js/pause.js"></script>
-    <script type="module" src="js/tutorial.js"></script>
-    <script type="module" src="js/controlesJug.js"></script>
-    <script type="module" src="js/ChatManager.js"></script>
-    <script src="js/derrota.js"></script>
-    <script src="js/Login.js"></script>
 
     <meta charset="utf-8" />
     <title>Mystery Mice</title>
@@ -38,14 +26,51 @@
         <button id="chat-send">Enviar</button>
     </div>
 
-    
-    
-    <script type="module">
-        // Configuración del juego
-        import GameScene from './js/game.js';
-        import TutorialScene from './js/tutorial.js';
-        import ChatManager from './js/ChatManager.js'; // Importa ChatManager para que esté disponible si es necesario
+    <!-- *************************************************************** -->
+    <!-- ¡IMPORTANTE! Todos los scripts con 'import' o 'export' deben ser 'type="module"'.
+                       También DEBEN ser importados en el script final que inicializa Phaser.
+                       No es necesario cargar individualmente aquí si se importan en el script principal.
+                       Si no tienen 'export', funcionarán globalmente si son '<script src="...">'.
+                       Pero para consistencia y modernidad, se recomienda modularizar todo.
+    -->
+    <!-- HE QUITADO LAS CARGAS INDIVIDUALES DE JS/ ESCENAS PARA EVITAR CONFLICTOS DE ALCANCE -->
+    <!-- TODAS LAS ESCENAS DEBEN SER EXPORTADAS EN SUS RESPECTIVOS ARCHIVOS -->
+    <!-- *************************************************************** -->
 
+    <script type="module">
+        // Importa TODAS tus escenas y managers aquí, ya que se ejecutarán como módulos.
+        // Asegúrate de que CADA UNO de estos archivos (Login.js, intro.js, etc.)
+        // tenga al inicio "export default class NombreEscena extends Phaser.Scene {"
+        // Si no tienen 'export default', deberás importar la clase directamente por su nombre,
+        // o adjuntarla a 'window' en su propio archivo si quieres que sea global.
+        // Lo más limpio es 'export default'.
+
+        // Orden de importación: Dependencias primero, luego las escenas.
+        // Las que no tienen importaciones internas pueden ir primero.
+
+        // Módulos que exportan clases/constantes que se usan en otras
+        import { MSG_TYPES } from './js/WebSocketMessages.js'; // Necesitará ser actualizado para exportar
+        import WebSocketManager from './js/WebSocketManager.js'; // Necesitará ser creado/actualizado para exportar
+        import ControlsManager from './js/controlesJug.js';
+        import ChatManager from './js/ChatManager.js';
+        
+        // Escenas del juego (asegúrate de que CADA una tenga 'export default class ...')
+        import LoginScene from './js/Login.js';
+        import IntroScene from './js/intro.js';
+        import GameScene from './js/game.js'; // Asegúrate que game.js exporte GameScene
+        // Si tienes una ControlScene, PreviewScene, PauseScene, CreditScene, DialogueScene, EndScene, LoseScene
+        // CADA UNA debe tener 'export default class NombreDeLaClase extends Phaser.Scene {'
+        import ControlScene from './js/controls.js'; // Asumo que controls.js contiene ControlScene
+        import PreviewScene from './js/preview.js'; // Asumo que preview.js contiene PreviewScene
+        import TutorialScene from './js/tutorial.js';
+        import PauseScene from './js/pause.js'; // Asumo que pause.js contiene PauseScene
+        import CreditScene from './js/credit.js'; // Asumo que credit.js contiene CreditScene
+        import DialogueScene from './js/dialogo.js';
+        import EndScene from './js/end.js';
+        import LoseScene from './js/derrota.js';
+
+
+        // Configuración del juego Phaser
         var config = {
             type: Phaser.AUTO,
             scale: {
@@ -62,11 +87,17 @@
                     debug: false,
                 },
             },
-            scene: [LoginScene,IntroScene, GameScene, ControlScene, PreviewScene, TutorialScene, PauseScene, CreditScene, DialogueScene, EndScene, LoseScene],
+            // Asegúrate de que las clases importadas se usen directamente aquí
+            scene: [LoginScene, IntroScene, GameScene, ControlScene, PreviewScene, TutorialScene, PauseScene, CreditScene, DialogueScene, EndScene, LoseScene],
         };
+
         const game = new Phaser.Game(config);
         
         // Variable global para mantener la instancia de chatManager
+        // Esto es necesario porque ChatManager se inicializa en Login.js
+        // y se accede desde otras partes del código (como el listener beforeunload).
+        // Si ChatManager fuera solo para el chat websocket, podría tener su propio script
+        // que se inicialice por sí mismo sin ser global.
         window.chatManagerInstance = null;
 
         $(document).ready(() => {
@@ -75,7 +106,7 @@
             // Solo inicializar ChatManager si un usuario ya está logueado al cargar la página.
             // De lo contrario, se inicializará desde LoginScene después de un inicio de sesión exitoso.
             if (nombre && nombre !== "Anónimo") {
-                window.chatManagerInstance = new ChatManager();
+                window.chatManagerInstance = new ChatManager(); // Ya importado arriba
                 $(window).on('beforeunload', () => {
                     if (window.chatManagerInstance) {
                         window.chatManagerInstance.disconnectUser();
