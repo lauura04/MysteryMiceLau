@@ -189,7 +189,8 @@ export default class TutorialScene extends Phaser.Scene {
 
         this.waitingText.setVisible(false); // Oculta el mensaje de espera
 
-        
+        const centerX = this.scale.width / 2;
+        const centerY = this.scale.height / 2;
 
         // Asigna los sprites de los jugadores según la clave recibida del servidor
         if (this.myPlayerKey === 'Sighttail') {
@@ -221,8 +222,7 @@ export default class TutorialScene extends Phaser.Scene {
         this.launchDialogueScene(0);
 
         // Configuración de la puerta
-        const centerX = this.scale.width / 2;
-        const centerY = this.scale.height / 2;
+        
         this.puerta = this.add.rectangle(0.5 * centerX, 0.55 * centerY, 0.2 * centerX, 0.45 * centerY, 0x000000, 0).setOrigin(0, 0);
         this.physics.add.existing(this.puerta, true);
         this.puertaInteractuable = false;
