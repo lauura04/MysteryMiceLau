@@ -6,6 +6,8 @@ export default class WebsSocketManger {
         this.ws = null; // conexión websocket
         this.playerId = null;
         this.playerKey = null; // 'Sighttail' o 'Scentpaw'
+        this.lastUpdateTime = 0;
+
     }
 
     connect(gameId, playerId, playerKey) {
@@ -47,9 +49,7 @@ export default class WebsSocketManger {
                         this.gameScene.startGame(
                             data.gameId,
                             data.playerId, // Esto es el ID de sesión del servidor
-                            data.playerKey,
-                            data.startX,    // <--- Pasar startX
-                            data.startY     // <--- Pasar startY
+                            data.playerKey                            
                         );
                         // Asegúrate de que el playerId y playerKey del manager ya están asignados al conectarse
                         // O actualízalos aquí si el servidor envía los "oficiales"
@@ -93,28 +93,20 @@ export default class WebsSocketManger {
         };
     }
 
-    // *** CAMBIO CRÍTICO AQUÍ: EL MÉTODO 'send' AHORA TOMA EL TIPO Y LOS DATOS POR SEPARADO ***
     send(typeChar, dataObject = {}) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            // 1. Validar que el tipo sea un solo carácter
+          
             if (typeof typeChar !== 'string' || typeChar.length !== 1) {
                 console.error("Error: 'typeChar' debe ser un string de un solo carácter. Recibido:", typeChar);
                 return;
             }
 
-            // 2. Asegurarse de que el objeto de datos incluye el playerId
-            //    Lo clonamos para no modificar el objeto original que nos pasaron
-            const finalDataObject = { ...dataObject };
+           const finalDataObject = { ...dataObject };
             if (this.playerId && finalDataObject.playerId === undefined) {
                 finalDataObject.playerId = this.playerId;
             }
-            // NOTA: Si el playerId ya se está pasando en dataObject (como en PLAYER_JOIN),
-            // esta línea lo mantendrá. Si no está, lo añadirá. Esto es robusto.
-
-            // 3. Convertir el objeto de datos a una cadena JSON
             const jsonString = JSON.stringify(finalDataObject);
 
-            // 4. Concatenar el carácter de tipo al principio de la cadena JSON
             const messageToSend = typeChar + jsonString;
 
             console.log("CLIENTE: Enviando mensaje: ", messageToSend); // Para depurar lo que se envía
@@ -141,6 +133,12 @@ export default class WebsSocketManger {
 
     // manejar actualización de la posición de un jugador
     handlePlayerUpdate(data) {
+        const currentTime = Date.now();
+        /*
+        if(currentTime - this.lastUpdateTime >= this.POSITION_UPDATE_INTERVAL){
+            const dx = Math.abs(this.player.x - )
+        }*/
+
         const { playerId, x, y, anim, flipX } = data;
 
         // Si el mensaje es de nuestro propio jugador, no hacemos nada porque ya lo manejamos localmente

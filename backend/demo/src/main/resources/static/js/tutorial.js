@@ -5,18 +5,44 @@ import WebsSocketManger from "./WebSocketManager.js"; // Asegúrate de que el no
 export default class TutorialScene extends Phaser.Scene {
     constructor() {
         super({ key: 'TutorialScene' });
-        this.webSocketManager = null; // **CORREGIDO: Renombrado a 'webSocketManager' para consistencia.**
+
+        this.webSocketManager = null;
+        this.dialogueIntroLaunched = false;
+        this.gameStarted = false;
+        this.gameReadyPayload = null;
+
         this.gameId = null; // Asignar cuando el servidor lo envíe
-        this.myPlayerId = null;
         this.myPlayerKey = null;
 
         this.myPlayer = null; // El sprite del jugador que controlas localmente
         this.otherPlayer = null; // El sprite del otro jugador (controlado por el servidor)
         this.myControls = null; // Los controles específicos para tu jugador
 
+        // Propiedades para los objetos interactuables del tutorial
+        this.door = null;
+        this.hole = null;
+
         // Objeto para almacenar el último estado enviado del jugador.
         // Esto se usa para evitar enviar mensajes de actualización si no hay cambios.
-        this.lastSentPlayerState = { x: 0, y: 0, anim: '', flipX: false };
+        this.lastSentPlayerPosition = { x: 0, y: 0 };
+        this.lastUpdateTime = 0;
+        this.POSITION_UPDATE_INTERVAL = 50;
+        this.POSITION_THRESHOLD = 2;
+
+        this.otherPlayerCurrentAnim = '';
+
+        this.cursors = null; // Declararlo aquí lo hace accesible globalmente en la escena
+
+
+        // Tiempo de carga y duracción de las habilidades
+        this.cargaOlfato = 10000;
+        this.cargaVista = 10000;
+        this.durOlfato = 3000;
+        this.durVista = 3000;
+
+        // Estado de los poderes inicialmente
+        this.vistaDisp = false;
+        this.olfatoDisp = false;
     }
 
     preload() {
@@ -46,10 +72,12 @@ export default class TutorialScene extends Phaser.Scene {
     }
 
     create() {
+        this.cursors = this.input.keyboard.createCursorKeys();
+
+        this.abilityKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+
         this.controlsManager = new ControlsManager(this);
-        // La llamada a `initializeControls(this)` debería estar dentro del constructor de ControlsManager
-        // o si no, solo necesitas la instancia y los controles ya están listos.
-        // this.controlsManager.initializeControls(this); // Probablemente redundante aquí
 
         const centerX = this.scale.width / 2;
         const centerY = this.scale.height / 2;
@@ -59,12 +87,29 @@ export default class TutorialScene extends Phaser.Scene {
         this.webSocketManager.connect();
 
         // Elementos de espera mientras se une el otro jugador
-        this.waitingText = this.add.text(0.63*centerX, 1.35*centerY, 'Esperando a otro jugador', { // **CORREGIDO: Centrado el texto de espera**
+        this.waitingText = this.add.text(0.63 * centerX, 1.35 * centerY, 'Esperando a otro jugador', { // **CORREGIDO: Centrado el texto de espera**
             font: '30px mousy', // **Ajustado el tamaño de la fuente para que se vea mejor centrado**
             color: '#ffffff',
             align: 'center'
-        }).setDepth(10); // **Añadido setOrigin(0.5) para centrarlo realmente**
+        }).setDepth(10);
 
+
+
+
+        // Creamos unos arrays para meter las imagenes de las huellas y el humo
+        this.huellas = [];
+        this.humos = [];
+
+        // Crear áreas y objetos (colisiones del mundo)
+        const cripta = this.add.rectangle(0.085 * centerX, 0, centerX + 30, 0.95 * centerY, 0x000000, 0).setOrigin(0, 0);
+        this.physics.add.existing(cripta, true);
+
+        const cementerio = this.add.rectangle(1.6 * centerX, 0, 0.4 * centerX, 1.4 * centerY, 0x000000, 0).setOrigin(0, 0);
+        this.physics.add.existing(cementerio, true);
+
+
+        // Fondo del escenario
+        const escenario = this.add.image(centerX, centerY, "escenario");
 
         // Crear personajes (inicialmente invisibles y sin física activa, inamovibles)
         this.sighttail = this.physics.add.sprite(1.56 * centerX, 0.2 * centerY, 'Sighttail')
@@ -81,31 +126,6 @@ export default class TutorialScene extends Phaser.Scene {
             .setVisible(false)
             .setImmovable(true); // **Añadido: inamovible hasta que la partida comience**
 
-
-        // Creamos unos arrays para meter las imagenes de las huellas y el humo
-        this.huellas = [];
-        this.humos = [];
-
-        // Tiempo de carga y duracción de las habilidades
-        this.cargaOlfato = 10000;
-        this.cargaVista = 10000;
-        this.durOlfato = 3000;
-        this.durVista = 3000;
-
-        // Estado de los poderes inicialmente
-        this.vistaDisp = false;
-        this.olfatoDisp = false;
-
-        // Crear áreas y objetos (colisiones del mundo)
-        const cripta = this.add.rectangle(0.085 * centerX, 0, centerX + 30, 0.95 * centerY, 0x000000, 0).setOrigin(0, 0);
-        this.physics.add.existing(cripta, true);
-
-        const cementerio = this.add.rectangle(1.6 * centerX, 0, 0.4 * centerX, 1.4 * centerY, 0x000000, 0).setOrigin(0, 0);
-        this.physics.add.existing(cementerio, true);
-
-
-        // Fondo del escenario
-        const escenario = this.add.image(centerX, centerY, "escenario");
 
         const worldWidthT = escenario.displayWidth;
         const worldHeightT = escenario.displayHeight;
@@ -179,10 +199,14 @@ export default class TutorialScene extends Phaser.Scene {
         // **Crear animaciones para ambos personajes al inicio.**
         this.createAnimations('Sighttail');
         this.createAnimations('Scentpaw');
+
+
     }
 
     // Método llamado por WebSocketManager cuando el servidor indica que el juego ha comenzado
-    startGame(gameId, myPlayerId, myPlayerKey, startX, startY, otherPlayerStartX, otherPlayerStartY) { // **Añadido startX, startY para otherPlayer**
+    startGame(gameId, myPlayerId, myPlayerKey) {
+        console.log("startGame called!");
+
         this.gameId = gameId;
         this.myPlayerId = myPlayerId;
         this.myPlayerKey = myPlayerKey;
@@ -200,14 +224,24 @@ export default class TutorialScene extends Phaser.Scene {
         } else { // myPlayerKey === 'Scentpaw'
             this.myPlayer = this.scentpaw;
             this.otherPlayer = this.sighttail;
-            this.myControls = this.controlsManager.controls2;
+            this.myControls = this.controlsManager.controls2; // Scentpaw uses controls2
         }
 
-        // Calcula las posiciones de inicio basadas en el centerX, centerY del cliente
-        this.myPlayer.setPosition(1.56 * centerX, 0.2 * centerY);
-        this.otherPlayer.setPosition(1.42 * centerX, 0.2 * centerY);
+        // Set initial idle animation for both players
+        this.myPlayer.anims.play(`${this.myPlayerKey}-idleDown`, true);
+        this.otherPlayer.anims.play(`${this.otherPlayer.texture.key}-idleDown`, true);
 
+        this.lastSentPlayerState = {
+            x: this.myPlayer.x,
+            y: this.myPlayer.y,
+            anim: `${this.myPlayerKey}-idleDown`
+        };
+        this.lastUpdateTime = Date.now();
 
+        // Lanza el primer diálogo
+        this.launchDialogueScene(0);
+
+        console.log(`Partida ${this.gameId} iniciada. Eres ${this.myPlayerKey}`);
         // Hace visibles y activas las físicas para ambos jugadores
         this.myPlayer.setVisible(true).setImmovable(false);
         this.otherPlayer.setVisible(true).setImmovable(false);
@@ -216,19 +250,12 @@ export default class TutorialScene extends Phaser.Scene {
         this.otherPlayer.body.setVelocity(0, 0);
         this.otherPlayer.body.setAllowGravity(false); // Si no usas gravedad
 
-        console.log(`Partida ${this.gameId} iniciada. Eres ${this.myPlayerKey}`);
-
-        // Lanza el primer diálogo
-        this.launchDialogueScene(0);
 
         // Configuración de la puerta
-        
         this.puerta = this.add.rectangle(0.5 * centerX, 0.55 * centerY, 0.2 * centerX, 0.45 * centerY, 0x000000, 0).setOrigin(0, 0);
         this.physics.add.existing(this.puerta, true);
         this.puertaInteractuable = false;
 
-        // Collider para la puerta (solo el jugador local puede interactuar inicialmente)
-        // **CORREGIDO: Un solo collider para myPlayer y la puerta.**
         this.physics.add.collider(this.myPlayer, this.puerta, () => this.handlePuertaCollision());
     }
 
@@ -314,7 +341,16 @@ export default class TutorialScene extends Phaser.Scene {
         }
 
         this.scene.pause();
-        this.scene.launch('DialogueScene', { startIndex, endIndex, callingScene: this.scene.key });
+        this.scene.launch('DialogueScene', {
+            startIndex, endIndex, callingScene: this.scene.key,
+            onDialogueComplete: () => {
+                if (caseId === 0) {
+                    this.gameStarted = true;
+                    console.log("Dialogo inicial completo. Movimiento habilitado");
+                }
+                
+            }
+        });
     }
 
     // Construye las animaciones de los personajes
@@ -329,57 +365,16 @@ export default class TutorialScene extends Phaser.Scene {
         this.anims.create({ key: `${playerkey}-walk-right`, frames: this.anims.generateFrameNumbers(playerkey, { start: 143, end: 151 }), frameRate: 10, repeat: -1 });
     }
 
-    // Bucle principal de actualización del juego
-    update(time, delta) {
-        // Solo maneja el movimiento del jugador local si ya está asignado
-        if (this.myPlayer && this.myControls) {
-            // Almacena el estado actual antes de la actualización de movimiento
-            let previousAnim = this.myPlayer.anims.currentAnim ? this.myPlayer.anims.currentAnim.key : `${this.myPlayerKey}-idleDown`;
-            let previousFlipX = this.myPlayer.flipX;
-            let previousX = this.myPlayer.x;
-            let previousY = this.myPlayer.y;
+    handlePowers() {
+        if (!this.gameStarted || !this.myPlayer) return;
 
-            // Llama al manejador de movimiento para tu jugador
-            this.controlsManager.handlePlayerMovement(
-                this.myPlayer,
-                this.myControls,
-                this.myPlayerKey
-            );
-
-            // Obtén el estado actual después de la actualización de movimiento
-            let currentAnim = this.myPlayer.anims.currentAnim ? this.myPlayer.anims.currentAnim.key : previousAnim;
-            let currentFlipX = this.myPlayer.flipX;
-            let currentX = this.myPlayer.x;
-            let currentY = this.myPlayer.y;
-
-            // Comprueba si el estado del jugador ha cambiado (posición o animación/flipX)
-            if (currentX !== previousX || currentY !== previousY || currentAnim !== previousAnim || currentFlipX !== previousFlipX) {
-                const currentPlayerState = {
-                    x: currentX,
-                    y: currentY,
-                    anim: currentAnim,
-                    flipX: currentFlipX
-                };
-
-                // Envía la actualización al servidor
-                this.webSocketManager.send(
-                    MSG_TYPES.PLAYER_UPDATE, // Usamos el tipo de mensaje 'u' para actualización de jugador
-                    currentPlayerState
-                );
-
-                // Actualiza el último estado enviado para la próxima comparación
-                this.lastSentPlayerState = { ...currentPlayerState };
-            }
-
-            // Lógica para las habilidades (solo si el jugador local es el correcto y la habilidad está disponible)
-            // Ya no hay controles separados para Sighttail y Scentpaw en update, solo myControls.
-            // La lógica de las habilidades se aplica al jugador local (myPlayer)
-            // Habilidad de Visión (Sighttail)
-            if (this.myPlayerKey === 'Sighttail' && this.vistaDisp && this.myControls.keys.power.isDown) {
+        if (this.abilityKey.isDown) {
+            if (this.myPlayerKey === 'Sighttail' && this.vistaDisp) {
                 console.log("Jugador Sighttail usó poder");
                 this.vistaDisp = false;
                 this.huellas.forEach(huella => { huella.setVisible(true); });
                 this.capaV.setVisible(true);
+                
                 this.webSocketManager.send(MSG_TYPES.ABILITY_USE, { playerKey: this.myPlayerKey, ability: 'vision' }); // Enviar al servidor
 
                 this.time.delayedCall(this.durVista, () => {
@@ -392,13 +387,14 @@ export default class TutorialScene extends Phaser.Scene {
                     console.log("Vista disponible");
                 });
             }
-
+            
             // Habilidad de Olfato (Scentpaw)
-            if (this.myPlayerKey === 'Scentpaw' && this.olfatoDisp && this.myControls.keys.power.isDown) {
+            if (this.myPlayerKey === 'Scentpaw' && this.olfatoDisp) {
                 console.log("Jugador Scentpaw usó poder");
                 this.olfatoDisp = false;
                 this.humos.forEach(humo => { humo.setVisible(true); });
                 this.capaO.setVisible(true);
+
                 this.webSocketManager.send(MSG_TYPES.ABILITY_USE, { playerKey: this.myPlayerKey, ability: 'olfato' }); // Enviar al servidor
 
                 this.time.delayedCall(this.durOlfato, () => {
@@ -411,8 +407,19 @@ export default class TutorialScene extends Phaser.Scene {
                     console.log("Olfato disponible");
                 });
             }
-        }
 
+        }
+    }
+
+    // Bucle principal de actualización del juego
+    update(time, delta) {
+
+        if (!this.gameStarted || !this.myPlayer) return;
+
+        this.handlePlayerMovement();
+        this.handlePositionUpdates();
+        this.handlePowers();
+        
         // Centrar cámara entre los dos jugadores
         // **Esto solo debe ocurrir si ambos jugadores (myPlayer y otherPlayer) han sido inicializados.**
         if (this.myPlayer && this.otherPlayer) {
@@ -427,5 +434,50 @@ export default class TutorialScene extends Phaser.Scene {
             const centerY = this.scale.height / 2;
             this.cameras.main.centerOn(centerX, centerY);
         }
+    }
+
+    handlePlayerMovement() {
+        const cursors = this.input.keyboard.createCursorsKeys();
+        const speed = 100;
+
+        this.myPlayer.body.setVelocity(0);
+
+        if (cursors.left.isDown) {
+            this.myPlayer.body.setVelocityX(-speed);
+        } else if (cursors.right.isDown) {
+            this.myPlayer.body.setVelocityX(speed);
+        }
+
+        if (cursors.up.isDown) {
+            this.myPlayer.body.setVelocityY(-speed);
+        } else if (cursors.down.isDown) {
+            this.myPlayer.body.setVelocityY(speed);
+        }
+    }
+
+    handlePositionUpdates() {
+        const currentTime = Date.now();
+        if (currentTime - this.lastUpdateTime >= this.POSITION_UPDATE_INTERVAL) {
+            const dx = Maths.abs(this.myPlayer.x - this.lastSentPlayerPosition.x);
+            const dy = Maths.abs(this.myPlayer.y - this.lastSentPlayerPosition.y);
+
+            if (dx > this.POSITION_THRESHOLD || dy > this.POSITION_THRESHOLD) {
+                this.sendPosition();
+                this.lastUpdateTime = currentTime;
+                this.lastSentPlayerPosition = { x: this.myPlayer.x, y: this.myPlayer.y };
+            }
+
+        }
+    }
+
+
+    sendPlayerState(){
+        this.webSocketManager.send(MSG_TYPES.PLAYER_UPDATE, {
+            playerId: this.myPlayerId,
+            x: Math.round(this.myPlayer.x),
+            y: Math.round(this.myPlayer.y),
+            anim: this.myPlayer.anims.currentAnim ? this.myPlayer.anims.currentAnim.key : `${this.myPlayerKey}-idleDown`,
+            flipX: this.myPlayer.flipX
+        });
     }
 }
