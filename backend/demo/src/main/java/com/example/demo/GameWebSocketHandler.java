@@ -61,10 +61,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         // Posiciones iniciales para los jugadores en esta partida (pueden ser
         // dinámicas)
-        double player1StartX = 1.56 * 400; // Ejemplo de valores calculados (basado en centro X, Y)
-        double player1StartY = 0.2 * 300;
-        double player2StartX = 1.42 * 400;
-        double player2StartY = 0.2 * 300;
+        double player1StartX = 1.56 * 960; // Ejemplo de valores calculados (basado en centro X, Y)
+        double player1StartY = 0.2 * 540;
+        double player2StartX = 1.42 * 960;
+        double player2StartY = 0.2 * 540;
 
         // Banderas para el estado del tutorial (¡Nuevos campos!)
         boolean sighttailInteractedWithAgujero = false;
