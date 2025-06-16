@@ -133,17 +133,8 @@ export default class TutorialScene extends Phaser.Scene {
         this.huellas = [];
         this.humos = [];
 
-        // Crear áreas y objetos (colisiones del mundo)
-        const cripta = this.add.rectangle(0.085 * centerX, 0, centerX + 30, 0.95 * centerY, 0x000000, 0).setOrigin(0, 0);
-        this.physics.add.existing(cripta, true);
-
-        const cementerio = this.add.rectangle(1.6 * centerX, 0, 0.4 * centerX, 1.4 * centerY, 0x000000, 0).setOrigin(0, 0);
-        this.physics.add.existing(cementerio, true);
-
-
-        // Fondo del escenario
-        const escenario = this.add.image(centerX, centerY, "escenario");
-
+        
+    
         const worldWidthT = escenario.displayWidth;
         const worldHeightT = escenario.displayHeight;
         this.cameras.main.setBounds(0, 0, worldWidthT, worldHeightT);
