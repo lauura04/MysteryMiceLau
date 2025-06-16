@@ -1,3 +1,5 @@
+## VIDEO
+https://youtu.be/j4aogoPRegk
 
 GDD-MISTERY MICE
 
@@ -283,8 +285,8 @@ Para implementar esta insignia se ha decidido cambiar el texto del periodico del
 El juego mezcla la estética pixel art in-game y mantiene una estetica 2D convencional para las interfaces y closeups de los personajes, por lo que estaría cumpliendo con el requisito.
 
 ## Diagrama de clases y API REST
-![Image](https://github.com/user-attachments/assets/0cbf2279-d08f-4d36-b786-4c7dc9745377)
-> Diagrama de clases y API REST por colores (Figura 25)
+![Image](https://github.com/user-attachments/assets/54ad761f-da0b-4238-b1d9-e98a025c493a)
+> Diagrama de clases, API REST y WebSockets por colores (Figura 25)
 
 ## Instrucciones para ejecutar
 Para poder ejecutar el .jar es necesario abrir una terminal y ejecutarlo con la instrución: java -jar target/demo-0.0.1-SNAPSHOT.jar
@@ -325,4 +327,6 @@ ejecuta el servidor teniendo que haer: http://ip:8080 (puerto en el que se ha de
 2. En la segunda fase ha diseño de tipografía propia así como la mayor parte de programación.
    
 3. En la tercera fase ha creado el servidor, implementado el chat, manejo de usuarios, registro e inicio de sesión
+
+4. En la cuarta fase se ha encargado de toda la creación y manejo de WebSockets
 
