@@ -7,6 +7,45 @@ export default class GameScene extends Phaser.Scene {
         super({ key: 'GameScene', physics: { default: 'arcade' } });
     }
 
+    init(data) {
+        // Almacenar los datos pasados para usarlos en create()
+        this.gameId = data.gameId;
+        this.playerId = data.playerId;
+        this.playerKey = data.playerKey; // 'Sighttail' o 'Scentpaw'
+        this.webSocketManager = data.webSocketManager; // Esto es crucial para mantener la conexión
+        this.otherPlayerId = data.otherPlayerId; // Si necesitas saber el ID del otro jugador
+        this.otherPlayerKey = data.otherPlayerKey; // Si necesitas saber el rol del otro jugador
+
+        console.log("GameScene initialized with data:", data);
+
+        //esto es igual
+        // Esto se usa para evitar enviar mensajes de actualización si no hay cambios.
+        this.lastSentPlayerPosition = { x: 0, y: 0 };
+        this.lastUpdateTime = 0;
+        this.POSITION_UPDATE_INTERVAL = 50;
+        this.POSITION_THRESHOLD = 2;
+
+        this.otherPlayerCurrentAnim = '';
+
+        this.cursors = null; // Declararlo aquí lo hace accesible globalmente en la escena
+
+
+        // Tiempo de carga y duracción de las habilidades
+        this.cargaOlfato = 10000;
+        this.cargaVista = 10000;
+        this.durOlfato = 3000;
+        this.durVista = 3000;
+
+        // Estado de los poderes inicialmente
+        this.vistaDisp = false;
+        this.olfatoDisp = false;
+
+        // Banderas para controlar si el efecto visual de un poder está activo
+        // Esto ayuda a evitar múltiples activaciones visuales y sincronización
+        this.isSighttailVisualEffectActive = false;
+        this.isScentpawVisualEffectActive = false;
+    }
+
     preload() {
         //Cargamos los spritesheet de los personajes
         this.load.spritesheet('Sighttail', 'assets/Sightail_spritesheet.png', {

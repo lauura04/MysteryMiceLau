@@ -33,10 +33,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
      * session.
      */
     private static class Player {
+        static final int MAX_LIVES = 3;
         WebSocketSession session;
         double x;
         double y;
-        int score;
+        // int score;
+
+        int currentLives;
+        long gasTimeStart = 0;
 
         // int playerId; // Este campo no es necesario si usas session.getId() como ID
         // único
@@ -47,7 +51,18 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             this.session = session;
             this.x = 0; // Posición inicial por defecto
             this.y = 0; // Posición inicial por defecto
-            this.score = 0;
+            // this.score = 0;
+            this.currentLives = MAX_LIVES;
+        }
+
+        public void resetGasTimer() {
+            this.gasTimeStart = 0;
+        }
+
+        public void startGasTimer() {
+            if (this.gasTimeStart == 0) {
+                this.gasTimeStart = System.currentTimeMillis();
+            }
         }
     }
 
@@ -55,16 +70,21 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
      * Represents a game session with two players and game state.
      */
     private static class Game {
-        String gameId; // ¡Nuevo campo para el ID único de la partida!
+        private static final int MAX_LIVES = 3;
+        String gameId;
         Player player1; // Sighttail
         Player player2; // Scentpaw
 
-        // Posiciones iniciales para los jugadores en esta partida (pueden ser
-        // dinámicas)
+        // Posiciones iniciales para los jugadores en el tutorial
         double player1StartX = 1.56 * 960; // Ejemplo de valores calculados (basado en centro X, Y)
         double player1StartY = 0.2 * 540;
         double player2StartX = 1.42 * 960;
         double player2StartY = 0.2 * 540;
+
+        double player1StartX_Game = 3.5 * 960;
+        double player1StartY_Game = 8 * 540;
+        double player2StartX_Game = 3.3 * 960;
+        double player2StartY_Game = 8 * 540;
 
         // Banderas para el estado del tutorial (¡Nuevos campos!)
         boolean sighttailInteractedWithAgujero = false;
@@ -72,6 +92,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         boolean doorOpened = false;
         boolean tutorialAbilitiesActivated = false;
         boolean agujeroVisible = false;
+
+        // banderas para dialogos
+        boolean firstGasContacts= true;
+        boolean firstArrowHit= true;
+        boolean firstHunterInteraction = true;
 
         ScheduledFuture<?> timerTask;
 
@@ -85,6 +110,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             this.player1.y = player1StartY;
             this.player2.x = player2StartX;
             this.player2.y = player2StartY;
+
+            this.player1.currentLives = MAX_LIVES;
+            this.player2.currentLives = MAX_LIVES;
         }
     }
 
@@ -115,6 +143,16 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (currentPlayer == null) {
             System.err.println("Jugador no encontrado para la sesión: " + session.getId());
             return;
+        }
+
+        // Encuentra la partida a la que pertenece este jugador
+        Game currentGame = null;
+        for (Game game : games.values()) {
+            if ((game.player1 != null && game.player1.session.getId().equals(session.getId())) ||
+                    (game.player2 != null && game.player2.session.getId().equals(session.getId()))) {
+                currentGame = game;
+                break;
+            }
         }
 
         switch (type) {
@@ -260,14 +298,42 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                             + gameAgujero.scentpawInteractedWithAgujero + " en partida " + gameAgujero.gameId);
 
                     // Si ambos han interactuado, envía una señal para que AMBOS avancen de escena
-                    if (gameAgujero.sighttailInteractedWithAgujero && gameAgujero.scentpawInteractedWithAgujero) {
+                    if (gameAgujero.sighttailInteractedWithAgujero || gameAgujero.scentpawInteractedWithAgujero) {
                         System.out.println("Ambos jugadores interactuaron con el agujero en partida "
                                 + gameAgujero.gameId + ". Notificando a clientes para avanzar.");
                         // Enviar un mensaje para CAMBIAR DE ESCENA (type 'g', progressType)
-                        sendToPlayer(gameAgujero.player1, "g", Map.of("progressType", "agujero_ambos_interactuaron",
-                                "message", "Ambos interactuaron con el agujero. Avanzando a GameScene."));
-                        sendToPlayer(gameAgujero.player2, "g", Map.of("progressType", "agujero_ambos_interactuaron",
-                                "message", "Ambos interactuaron con el agujero. Avanzando a GameScene."));
+                        Map<String, Object> player1AdvanceData = new HashMap<>(); // <<-- Usar HashMap
+                        player1AdvanceData.put("progressType", "agujero_ambos_interactuaron");
+                        player1AdvanceData.put("message", "Ambos interactuaron con el agujero. Avanzando a GameScene.");
+                        player1AdvanceData.put("startX", currentGame.player1StartX_Game); // Posición del juego principal
+                        player1AdvanceData.put("startY", currentGame.player1StartY_Game); // Posición del juego principal
+                        player1AdvanceData.put("opponentStartX", currentGame.player2StartX_Game); // Posición del oponente en el juego principal
+                        player1AdvanceData.put("opponentStartY", currentGame.player2StartY_Game);
+                        player1AdvanceData.put("gameId", currentGame.gameId);
+                        player1AdvanceData.put("playerKey", "Sighttail");
+                        player1AdvanceData.put("playerId", currentGame.player1.session.getId());
+                        player1AdvanceData.put("initialLives", currentGame.player1.currentLives);
+                        player1AdvanceData.put("isFirstGasContact", currentGame.firstGasContacts);
+                        player1AdvanceData.put("isFirstArrowHit", currentGame.firstArrowHit);
+                        player1AdvanceData.put("hasSpokenToHunter", currentGame.firstHunterInteraction);
+                        sendToPlayer(currentGame.player1, "h", player1AdvanceData);
+
+                        // --- MENSAJE 'h' (HANDSHAKE/ADVANCE SCENE) PARA PLAYER2 (Scentpaw) ---
+                        Map<String, Object> player2AdvanceData = new HashMap<>(); // <<-- Usar HashMap
+                        player2AdvanceData.put("progressType", "agujero_ambos_interactuaron");
+                        player2AdvanceData.put("message", "Ambos interactuaron con el agujero. Avanzando a GameScene.");
+                        player2AdvanceData.put("startX", currentGame.player2StartX_Game); // Posición del juego principal
+                        player2AdvanceData.put("startY", currentGame.player2StartY_Game); // Posición del juego principal
+                        player2AdvanceData.put("opponentStartX", currentGame.player1StartX_Game); // Posición del oponente en el juego principal
+                        player2AdvanceData.put("opponentStartY", currentGame.player1StartY_Game);
+                        player2AdvanceData.put("gameId", currentGame.gameId);
+                        player2AdvanceData.put("playerKey", "Scentpaw");
+                        player2AdvanceData.put("playerId", currentGame.player2.session.getId());
+                        player2AdvanceData.put("initialLives", currentGame.player2.currentLives);
+                        player2AdvanceData.put("isFirstGasContact", currentGame.firstGasContacts);
+                        player2AdvanceData.put("isFirstArrowHit", currentGame.firstArrowHit);
+                        player2AdvanceData.put("hasSpokenToHunter", currentGame.firstHunterInteraction);
+                        sendToPlayer(currentGame.player2, "h", player2AdvanceData);
 
                         // Resetear el estado de interacción (opcional, si el agujero es de un solo uso
                         // por partida)

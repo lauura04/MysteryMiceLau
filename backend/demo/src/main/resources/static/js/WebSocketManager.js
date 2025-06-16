@@ -71,11 +71,12 @@ export default class WebsSocketManger {
                             console.warn("gameScene no disponible o handleDoorInteractionConfirmed no es una función.");
                         }
                         break;
-                    case MSG_TYPES.AGUJERO_INTERACT_CONFIRM: // Añadir si el servidor confirma la interacción del agujero
+                    case MSG_TYPES.HOLE_INTERACT_CONFIRMED:
                         console.log("Servidor confirma interacción con el agujero.");
-                        if (this.gameScene && this.gameScene.launchDialogueScene) {
-                            // Asumo que el servidor podría enviar qué diálogo lanzar, por ejemplo data.dialogueIndex
-                            this.gameScene.launchDialogueScene(data.dialogueIndex || 2); // Ejemplo: lanza el diálogo 2 por defecto
+                        if (this.gameScene && typeof this.gameScene.handleAgujeroInteractionConfirmed === 'function') { // <--- CAMBIO
+                            this.gameScene.handleAgujeroInteractionConfirmed(); // <--- CAMBIO
+                        } else {
+                            console.warn("gameScene no disponible o handleAgujeroInteractionConfirmed no es una función."); // <--- CAMBIO
                         }
                         break;
                     case MSG_TYPES.ABILITY_USE:
@@ -138,10 +139,10 @@ export default class WebsSocketManger {
     }
 
     sendAgujeroInteractionRequest(playerKey) {
-        this.send(MSG_TYPES.AGUJERO_INTERACT, { playerKey }); // Asumiendo que MSG_TYPES.AGUJERO_INTERACT es el tipo 'g'
+        this.send(MSG_TYPES.HOLE_INTERACT, { playerKey }); // Asumiendo que MSG_TYPES.AGUJERO_INTERACT es el tipo 'g'
     }
 
-    // ... cualquier otro método de envío
+   
 
     // manejar actualización de la posición de un jugador
     handlePlayerUpdate(data) {
