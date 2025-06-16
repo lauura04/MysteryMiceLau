@@ -50,14 +50,13 @@ export default class ControlScene extends Phaser.Scene{
         // imagenes de los ratones con sus respectivos controles de teclado
         const sighttailAsset = this.add.image(0.5*centerX,0.6*centerY, "sighttailE");
         sighttailAsset.setScale(0.4);
-        const control1 = this.add.image(0.7*centerX, 0.8*centerY, "control1");
-        control1.setScale(1.2);    
-        const scentpawAsset = this.add.image(1.4*centerX, 0.6*centerY,"scentpawE" );
-        scentpawAsset.setScale(-0.45, 0.45);
-        const control2 = this.add.image(1.5*centerX, 0.9*centerY, "control2");
+        
+        const scentpawAsset = this.add.image(centerX, 0.6*centerY,"scentpawE" );
+        scentpawAsset.setScale(-0.43, 0.43);
+        const control2 = this.add.image(0.8*centerX, 0.9*centerY, "control2");
         control2.setScale(1.2);       
-        const vision = this.add.image(0.7*centerX, 1.2*centerY, "vision").setScale(3);
-        const olfato = this.add.image(1.5*centerX, 1.2*centerY, "olfato").setScale(3);
+        const vision = this.add.image(0.35*centerX, 1.2*centerY, "vision").setScale(3);
+        const olfato = this.add.image(0.8*centerX, 1.2*centerY, "olfato").setScale(3);
 
         //Se guarda la escena que fué pausada para cambiar a esta interfaz
         this.callingScene = this.scene.settings.data?.callingScene || null;

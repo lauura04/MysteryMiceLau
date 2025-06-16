@@ -186,7 +186,7 @@ export default class TutorialScene extends Phaser.Scene {
         this.capaO = this.add.circle(0.56 * centerX, 1.25 * centerY, 32, 0x000000, 0.5).setScrollFactor(0).setVisible(true);
 
 
-        
+
 
         // **Crear animaciones para ambos personajes al inicio.**
         this.createAnimations('Sighttail');
@@ -323,7 +323,14 @@ export default class TutorialScene extends Phaser.Scene {
             // Transición a GameScene después de un breve retraso
             this.time.delayedCall(500, () => {
                 this.scene.stop('TutorialScene');
-                this.scene.start('GameScene');
+                this.scene.start('GameScene', {
+                    webSocketManager: this.webSocketManager,
+                    gameId: this.gameId,
+                    playerId: this.myPlayerId,
+                    playerKey: this.myPlayerKey,
+                    otherPlayerId: this.otherPlayerId,
+                    otherPlayerKey: this.otherPlayerKey
+                });
             });
         }
     }

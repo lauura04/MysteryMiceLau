@@ -94,8 +94,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         boolean agujeroVisible = false;
 
         // banderas para dialogos
-        boolean firstGasContacts= true;
-        boolean firstArrowHit= true;
+        boolean firstGasContacts = true;
+        boolean firstArrowHit = true;
         boolean firstHunterInteraction = true;
 
         ScheduledFuture<?> timerTask;
@@ -180,15 +180,20 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                                 "gameId", gameId,
                                 "playerKey", "Sighttail",
                                 "playerId", currentPlayer.session.getId(),
-                                "startX", newGame.player1StartX, // Opcional: enviar posiciones iniciales
+                                "otherPlayerId", opponentPlayer.session.getId(), // <-- Añadir esto
+                                "otherPlayerKey", "Scentpaw", // <-- Añadir esto
+                                "startX", newGame.player1StartX,
                                 "startY", newGame.player1StartY));
+
+                        // Para opponentPlayer (Scentpaw)
                         sendToPlayer(opponentPlayer, "s", Map.of(
                                 "gameId", gameId,
                                 "playerKey", "Scentpaw",
                                 "playerId", opponentPlayer.session.getId(),
-                                "startX", newGame.player2StartX, // Opcional: enviar posiciones iniciales
+                                "otherPlayerId", currentPlayer.session.getId(), // <-- Añadir esto
+                                "otherPlayerKey", "Sighttail", // <-- Añadir esto
+                                "startX", newGame.player2StartX,
                                 "startY", newGame.player2StartY));
-
                         System.out.println("Partida creada: " + gameId + " entre " + currentPlayer.session.getId()
                                 + " (Sighttail) y " + opponentPlayer.session.getId() + " (Scentpaw)");
 
@@ -302,37 +307,21 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                         System.out.println("Ambos jugadores interactuaron con el agujero en partida "
                                 + gameAgujero.gameId + ". Notificando a clientes para avanzar.");
                         // Enviar un mensaje para CAMBIAR DE ESCENA (type 'g', progressType)
-                        Map<String, Object> player1AdvanceData = new HashMap<>(); // <<-- Usar HashMap
-                        player1AdvanceData.put("progressType", "agujero_ambos_interactuaron");
-                        player1AdvanceData.put("message", "Ambos interactuaron con el agujero. Avanzando a GameScene.");
-                        player1AdvanceData.put("startX", currentGame.player1StartX_Game); // Posición del juego principal
-                        player1AdvanceData.put("startY", currentGame.player1StartY_Game); // Posición del juego principal
-                        player1AdvanceData.put("opponentStartX", currentGame.player2StartX_Game); // Posición del oponente en el juego principal
-                        player1AdvanceData.put("opponentStartY", currentGame.player2StartY_Game);
-                        player1AdvanceData.put("gameId", currentGame.gameId);
+                        Map<String, Object> player1AdvanceData = new HashMap<>();
+                        // ... (tus campos existentes) ...
                         player1AdvanceData.put("playerKey", "Sighttail");
                         player1AdvanceData.put("playerId", currentGame.player1.session.getId());
-                        player1AdvanceData.put("initialLives", currentGame.player1.currentLives);
-                        player1AdvanceData.put("isFirstGasContact", currentGame.firstGasContacts);
-                        player1AdvanceData.put("isFirstArrowHit", currentGame.firstArrowHit);
-                        player1AdvanceData.put("hasSpokenToHunter", currentGame.firstHunterInteraction);
+                        player1AdvanceData.put("otherPlayerId", currentGame.player2.session.getId()); // <-- Añadir esto
+                        player1AdvanceData.put("otherPlayerKey", "Scentpaw"); // <-- Añadir esto
                         sendToPlayer(currentGame.player1, "h", player1AdvanceData);
 
-                        // --- MENSAJE 'h' (HANDSHAKE/ADVANCE SCENE) PARA PLAYER2 (Scentpaw) ---
-                        Map<String, Object> player2AdvanceData = new HashMap<>(); // <<-- Usar HashMap
-                        player2AdvanceData.put("progressType", "agujero_ambos_interactuaron");
-                        player2AdvanceData.put("message", "Ambos interactuaron con el agujero. Avanzando a GameScene.");
-                        player2AdvanceData.put("startX", currentGame.player2StartX_Game); // Posición del juego principal
-                        player2AdvanceData.put("startY", currentGame.player2StartY_Game); // Posición del juego principal
-                        player2AdvanceData.put("opponentStartX", currentGame.player1StartX_Game); // Posición del oponente en el juego principal
-                        player2AdvanceData.put("opponentStartY", currentGame.player1StartY_Game);
-                        player2AdvanceData.put("gameId", currentGame.gameId);
+                        // Para player2 (Scentpaw)
+                        Map<String, Object> player2AdvanceData = new HashMap<>();
+                        // ... (tus campos existentes) ...
                         player2AdvanceData.put("playerKey", "Scentpaw");
                         player2AdvanceData.put("playerId", currentGame.player2.session.getId());
-                        player2AdvanceData.put("initialLives", currentGame.player2.currentLives);
-                        player2AdvanceData.put("isFirstGasContact", currentGame.firstGasContacts);
-                        player2AdvanceData.put("isFirstArrowHit", currentGame.firstArrowHit);
-                        player2AdvanceData.put("hasSpokenToHunter", currentGame.firstHunterInteraction);
+                        player2AdvanceData.put("otherPlayerId", currentGame.player1.session.getId()); // <-- Añadir esto
+                        player2AdvanceData.put("otherPlayerKey", "Sighttail"); // <-- Añadir esto
                         sendToPlayer(currentGame.player2, "h", player2AdvanceData);
 
                         // Resetear el estado de interacción (opcional, si el agujero es de un solo uso

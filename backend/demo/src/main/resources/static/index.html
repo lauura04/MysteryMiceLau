@@ -26,27 +26,10 @@
         <button id="chat-send">Enviar</button>
     </div>
 
-    <!-- *************************************************************** -->
-    <!-- ¡IMPORTANTE! Todos los scripts con 'import' o 'export' deben ser 'type="module"'.
-                       También DEBEN ser importados en el script final que inicializa Phaser.
-                       No es necesario cargar individualmente aquí si se importan en el script principal.
-                       Si no tienen 'export', funcionarán globalmente si son '<script src="...">'.
-                       Pero para consistencia y modernidad, se recomienda modularizar todo.
-    -->
-    <!-- HE QUITADO LAS CARGAS INDIVIDUALES DE JS/ ESCENAS PARA EVITAR CONFLICTOS DE ALCANCE -->
-    <!-- TODAS LAS ESCENAS DEBEN SER EXPORTADAS EN SUS RESPECTIVOS ARCHIVOS -->
-    <!-- *************************************************************** -->
+   
 
     <script type="module">
-        // Importa TODAS tus escenas y managers aquí, ya que se ejecutarán como módulos.
-        // Asegúrate de que CADA UNO de estos archivos (Login.js, intro.js, etc.)
-        // tenga al inicio "export default class NombreEscena extends Phaser.Scene {"
-        // Si no tienen 'export default', deberás importar la clase directamente por su nombre,
-        // o adjuntarla a 'window' en su propio archivo si quieres que sea global.
-        // Lo más limpio es 'export default'.
-
-        // Orden de importación: Dependencias primero, luego las escenas.
-        // Las que no tienen importaciones internas pueden ir primero.
+ 
 
         // Módulos que exportan clases/constantes que se usan en otras
         import { MSG_TYPES } from './js/WebSocketMessages.js'; // Necesitará ser actualizado para exportar
