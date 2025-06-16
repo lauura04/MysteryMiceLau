@@ -5,12 +5,6 @@ GDD-MISTERY MICE
 
 -Laura Facenda Estrella - l.facenda.2022@alumnos.urjc.es - lauura04
 
--David del Castillo Enríquez - d.delcastillo.2022@alumnos.urjc.es - DavidDelCastillo
-
--Daniel Duque Rodríguez - d.duque.2021@alumnos.urjc.es - Daniii18
-
--María de Andrés Jarandilla - m.deandres.2021@alumnos.urjc.es - MariaDeAndres
-
 
 # INTRODUCCIÓN
 
@@ -109,23 +103,24 @@ Al haber dos personajes jugables cada uno se maneja con unas teclas completament
 -Espacio: activa su olfato.
  
 ## Estados 
+1. Login: la primera pantalla que aparece al abrir el juego. Desde aquí se puede iniciar sesión o registrarse en el caso de que no se haya iniciado
 
-1. Menú principal: la pirmera pantalla que aparece al abrir el juego. Desde aquí se puede entrar o salir del juego y acceder a la pantalla de créditos. 
+2. Menú principal: la pirmera pantalla que aparece al abrir el juego. Desde aquí se puede entrar o salir del juego y acceder a la pantalla de créditos. 
 
-2. Menú de controles: en este menú se podrán ver los controles para cada personaje. 
+3. Menú de controles: en este menú se podrán ver los controles para cada personaje. 
 
-3. Juego: todo el contenido jugable de la historia. 
+4. Juego: todo el contenido jugable de la historia. 
 
-4. Menú de pausa: accesible en todo momento desde el juego.
+5. Menú de pausa: accesible en todo momento desde el juego.
    
-5. Menú Creditos: pantalla con los integrantes del grupo y su trabajo realizado.
+6. Menú Creditos: pantalla con los integrantes del grupo y su trabajo realizado.
 
-6. Fin del juego: una pantalla que determina que el juego ha finalizado.
+7. Fin del juego: una pantalla que determina que el juego ha finalizado.
    
-7. Pantalla de derrota: pantalla que aparece cuando uno de los ratones muere. 
+8. Pantalla de derrota: pantalla que aparece cuando uno de los ratones muere. 
 
 Se incluye a continuación una versión ilustrada de los estados, con las condiciones para pasar de unos a otros: 
-![Diagrama Estados F3](https://github.com/user-attachments/assets/56f79e4d-f124-4dd7-b1c4-94cc12347979)
+![Image](https://github.com/user-attachments/assets/66d54f9c-3ab8-4415-9b9e-c1c8d0ce039a)
 > Mapa de estados actualizado (Figura 4)
 
 ## Interfaces 
@@ -136,44 +131,48 @@ Un estilo minimalista, con flechas y poco texto sería lo más adecuado para est
 
 Se describen los botones a partir de los distintos estados: 
 
-1. Menú principal: botones de jugar, salir, controles y créditos.
+1. Login: botones para iniciar sesión o registrarse, además de los recuadros a rellenar
+   ![Image](https://github.com/user-attachments/assets/1a8354f3-5bc0-45e7-a5c9-e4f661c63577)
+   > Interfaz login (Figura 5)
+
+2. Menú principal: botones de jugar, salir, controles y créditos. Se ha añadido un botón para el chat y manejo de mensajes
 
 ![MenuRef](https://github.com/user-attachments/assets/9273f467-b8b6-4315-9459-172a74988b4b)
-> Boceto del menú principal (Figura 5)
+> Boceto del menú principal (Figura 8)
 
-![MenuInicio](https://github.com/user-attachments/assets/f2144c8d-5edb-4009-b24d-237aeae38b17)
-> Interfaz menú de inicio (Figura 6)
+![Image](https://github.com/user-attachments/assets/38711b5b-e7ad-4423-a76c-767e2b0067f9)
+> Interfaz menú de inicio (Figura 7)
 
-2. Menú de pausa: reanudar (volver a la pantalla anterior), volver al menú y créditos.
+3. Menú de pausa: reanudar (volver a la pantalla anterior), volver al menú y créditos.
 
 ![Pausa](https://github.com/user-attachments/assets/a1c43c1d-c819-4782-ad62-e4365405faa3)
-> Boceto del menú de pausa (Figura 7)
+> Boceto del menú de pausa (Figura 8)
 
 ![Pausa](https://github.com/user-attachments/assets/fcba3fe6-ce6a-475e-9f71-bc8b839e4c6e)
-> Interfaz menú de pausa (Figura 8)
+> Interfaz menú de pausa (Figura 9)
 
-3. Menú Créditos: botón para volver al menú de pausa.
+4. Menú Créditos: botón para volver al menú de pausa.
 ![Creditos](https://github.com/user-attachments/assets/65af7167-d319-4c62-a1d6-98b8419accf5)
-> Interfaz menú de créditos (Figura 9)
+> Interfaz menú de créditos (Figura 10)
 
-4. Menú de controles:botón para volver a la pantalla anterior.
+5. Menú de controles:botón para volver a la pantalla anterior.
 ![Controles](https://github.com/user-attachments/assets/c025b1b5-ff85-472a-b201-ab6856d33ede)
-> Interfaz menú de controles (Figura 10)
+> Interfaz menú de controles (Figura 11)
 
-5. Dentro del juego: botón de pausa arriba a la izquierda.
+6. Dentro del juego: botón de pausa arriba a la izquierda.
 ![dentroJuego](https://github.com/user-attachments/assets/2bec8536-7863-40c3-93aa-7cb8d41e3f24)
-> Interfaz dentro del juego (Figura 11)
+> Interfaz dentro del juego (Figura 12)
 
-6. Pantalla de derrota: botón para volver al menú inicial.
+7. Pantalla de derrota: botón para volver al menú inicial.
 ![Derrota](https://github.com/user-attachments/assets/e3207e45-6568-4664-a3ea-5a5832ad971c)
->Interfaz pantalla de derrota (Figura 12)
+>Interfaz pantalla de derrota (Figura 13)
 
 
 # DESARROLLO DEL JUEGO 
 
 ## Niveles 
 
-La idea original era hacer tres niveles sin embargo, se deicio reducirlo a un solo nivel. 
+La idea original era hacer tres niveles sin embargo, se decidió reducirlo a un solo nivel. 
 
 ### Nivel 1. El Laberinto del Cazador Oculto. 
 
@@ -184,10 +183,10 @@ Este cazador murió tras la traición de otro habitante y por ello se encuentra 
 En este nivel, los jugadores llegan a la puerta de la cripta, una zona con muy poca iluminación, y se encuentran con la puerta cerrada. Mediante la vista de Sighttail y el olfato de Scentpaw encontrarán un agujero en la cripta para poder entrar en el edificio. 
 
 ![BocCriptaExterior](https://github.com/user-attachments/assets/08d3fcb9-0a7f-4829-bffe-e4cf09eb1143)
-> Boceto del exterior de la cripta (Figura 13)
+> Boceto del exterior de la cripta (Figura 14)
 
 ![EntradaCripta](https://github.com/user-attachments/assets/65e94000-430a-4992-92a1-4e2e64e149c2)
-> Mapa final del exterior de la cripta (Figura 14)
+> Mapa final del exterior de la cripta (Figura 15)
 
 Dentro de la cripta se encuentran con que están en un laberinto lleno de trampas, que en función de qué trampa sea un ratón u otro podrá salvar al otro. 
 
@@ -198,25 +197,25 @@ Dentro de la cripta se encuentran con que están en un laberinto lleno de trampa
 Cuando lleguen al cazador les contará su historia, descubriendo así que fue traicionado por cierto habitante con alto nivel de influencia. Junto al cazador descubren una carta escrita por el padre de estos, en la que se menciona que estaban investigando a la alcaldesa. 
 
 ![Diseño Nivel](https://github.com/user-attachments/assets/e272fca9-3ee9-4948-ac0c-6621c2b2273b)
-> Diseño del nivel (Figura 15)
+> Diseño del nivel (Figura 16)
 
 ![MapaJuego](https://github.com/user-attachments/assets/aac329cb-9769-4f54-b171-2a5ac5ac28ed)
-> Parte del laberinto final durante el gameplay (Figura 16)
+> Parte del laberinto final durante el gameplay (Figura 17)
 
 ## Personajes 
 
 Los protagonistas, Sighttail y Scentpaw, controlados por el jugador: Sighttail lleva gafas y tiene las orejas grandes. Además, tiene el pelaje algo largo y la cola negra. Por otro lado, Scentpaw tiene un gorro de investigador y las orejas más pequeñas que su hermano. Su pelaje es corto y una cola del mismo color que su pelaje. 
 
 ![Ilustracion_sin_titulo](https://github.com/user-attachments/assets/6c88396c-3123-434f-b46f-3ab91ac08c39)
-> Diseño de Sighttail durante los diálogos (Figura 17)
+> Diseño de Sighttail durante los diálogos (Figura 18)
 
 ![Gorra](https://github.com/user-attachments/assets/ce87aced-3c45-4005-838d-2bcdff90a644)
-> Diseño de Scentpaw durante los diálogos (Figura 18)
+> Diseño de Scentpaw durante los diálogos (Figura 19)
 
 El cazador de la cripta: Este ratón es algo robusto. Es alto, pero lo suficientemente sigiloso como para pasar desapercibido. Viste ropa de caza y lleva un hacha. 
 
 ![fanta](https://github.com/user-attachments/assets/e974dc56-1a41-4a98-96f7-7311c4c5d7a9)
-> Diseño del personaje durante los diálogos (Figura 19)
+> Diseño del personaje durante los diálogos (Figura 20)
 
 Alcaldesa: Es nombrada en diversas ocasiones a lo largo del juego sin embargo, no aparece físicamente en él.
 
@@ -229,17 +228,17 @@ Los ítems presentes en el juego son claves para el desarrollo clave del juego.
 1. Flechas: una de las trampas que incluye el juego. Son lanzadas y dañan al jugador si lo dañan.
 
 ![Flechas_F3](https://github.com/user-attachments/assets/05dc7d7b-5431-4788-be02-8a8376af8fd2)
-> Sprite de las flechas (Figura 20)
+> Sprite de las flechas (Figura 21)
 
 2. Neblina tóxica: la otra trampa. Para que dañe al jugador, este tiene que estar 7 segundos en contacto con la neblina.
 
 ![Gas](https://github.com/user-attachments/assets/4b0be0ed-f8f6-4c71-aba9-c1e52146607f)
-> Sprite de la neblura tóxica (Figura 21)
+> Sprite de la neblura tóxica (Figura 22)
 
 3. Carta familiar: la carta que los padres de Sighttail y Scentpaw les dejan antes de morir. Contiene información relativa a lo que les pasó.  
 
 ![CARTA](https://github.com/user-attachments/assets/4816c66c-7384-490e-ba75-b04750bf7796)
-> Sprite carta familiar (Figura 22)
+> Sprite carta familiar (Figura 23)
 
 ## Sonido
 
@@ -266,7 +265,7 @@ Se cumple ya que se ha incluido el sonido y la imagen del meme. Después de habl
 
 El proyecto realizado no contiene ningún tipo de elemento creado por inteligencia artificial por lo que cumple con dicha insignia ya que las imagenes se han creado personalmente para la entrega y todos los orígenes de los sonidos están referenciados en el documento de texto.
 ![IMG_1293](https://github.com/user-attachments/assets/4c522609-3e06-44bd-ae7d-c6522d852ba9)
->Prueba de la creación de elementos propios (Figura 23)
+>Prueba de la creación de elementos propios (Figura 24)
 
 ### “Eso me suena”
 "El juego debe tener una referencia a un videojuego de nuestra infancia. Esta puede ser acústica, visual, gráfica, de un personaje, un texto, ¡lo que sea! La idea es que seamos capaces de recordar algo de otros videojuegos de cuando éramos pequeños y nos venga la nostalgia de aquella buena época".  
@@ -282,6 +281,16 @@ Para implementar esta insignia se ha decidido cambiar el texto del periodico del
 "La insignia se dará a los juegos con una temática artística pixel art".
 
 El juego mezcla la estética pixel art in-game y mantiene una estetica 2D convencional para las interfaces y closeups de los personajes, por lo que estaría cumpliendo con el requisito.
+
+## Diagrama de clases y API REST
+![Image](https://github.com/user-attachments/assets/0cbf2279-d08f-4d36-b786-4c7dc9745377)
+> Diagrama de clases y API REST por colores (Figura 25)
+
+## Instrucciones para ejecutar
+Para poder ejecutar el .jar es necesario abrir una terminal y ejecutarlo con la instrución: java -jar target/demo-0.0.1-SNAPSHOT.jar
+
+Una vez ejecutado, para conectarse al servidor hay dos opciones, desde el mismo dispositivo con http://localhost:8080 y en el caso de otro dispositivo es necesario comprobar la ip del dispositivo en el que se
+ejecuta el servidor teniendo que haer: http://ip:8080 (puerto en el que se ha definido el servidor)
 
 ## Integrantes y sus contribuciones
 
@@ -315,6 +324,5 @@ El juego mezcla la estética pixel art in-game y mantiene una estetica 2D conven
   
 2. En la segunda fase ha diseño de tipografía propia así como la mayor parte de programación.
    
-3. En la tercera fase ha creado el servidor, implementado el chat, como gran parte de la programación.
+3. En la tercera fase ha creado el servidor, implementado el chat, manejo de usuarios, registro e inicio de sesión
 
-A falta de contenido por añadir se podrían modificar los roles.
