@@ -8,5 +8,7 @@ export const MSG_TYPES = {
     DOOR_INTERACT_CONFIRM: 'k', // Tipo que el servidor envía para confirmar la interacción
     AGUJERO_INTERACT: 'g', // Tipo para enviar la interacción del agujero al servidor
     AGUJERO_INTERACT_CONFIRM: 'h', // Tipo que el servidor envía para confirmar la interacción
+
+    DOOR_INTERACTION_CONFIRMED: 'd' //servidor confirma
     // ... otros tipos de mensajes
 };

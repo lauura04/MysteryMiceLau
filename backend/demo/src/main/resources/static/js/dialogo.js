@@ -410,80 +410,104 @@ export default class DialogueScene extends Phaser.Scene {
 
                 ];
 
-                const { startIndex, endIndex, callingScene, callbackOnEnd } = this.scene.settings.data;
-                this.currentDialogueIndex = startIndex;
-                this.endIndex = endIndex;
-                this.callingScene = callingScene;
-                this.callbackOnEnd = callbackOnEnd; // Esto es nuevo: una función para llamar al final
+                // variables para gestionar el comienzo y fin de cada uno de los dialogoso
+                const startIndex = this.scene.settings.data?.startIndex || 0; //Dialogo inicial
+                const endIndex = this.scene.settings.data?.endIndex || 0; //Dialogo final
+                this.currentDialogueIndex = startIndex; //Se actualiza el dialogo que se muestra
+                this.endIndex = endIndex;//Se actualiza el dialogo final
+                this.callingScene = this.scene.settings.data?.callingScene || null;//Se guarda la escena pausada
+                this.updateDialogue();//Llama a la función para actualizar el dialogo
+                this.primerDialCaz = true;
 
-                this.updateDialogue();
+                //Si se hace click se salta al siguiente dialogo
+                this.input.on('pointerdown', () => {
+                        this.nextDialogue();
+                });
 
-                // Si se hace click o se presiona una tecla se salta al siguiente dialogo
-                this.input.on('pointerdown', () => { this.nextDialogue(); });
-                this.input.keyboard.on('keydown-SPACE', () => { this.nextDialogue(); });
-                this.input.keyboard.on('keydown-E', () => { this.nextDialogue(); });
+                // letras que skipean dialogo -> de cada raton
+                this.input.keyboard.on('keydown-SPACE', () => {
+                        this.nextDialogue();
+                });
+                this.input.keyboard.on('keydown-E', () => {
+                        this.nextDialogue();
+                });
 
 
         }
 
         updateDialogue() {
+
+                //maneja la posicion de cada elemento y la actualizacion de los mismos en funcion de en que dialogo se encuentre
                 const dialogue = this.dialogueData[this.currentDialogueIndex];
-
-                // Resetear visibilidad de personajes
-                this.scentpaw.setVisible(false);
-                this.sighttail.setVisible(false);
-                this.cazador.setVisible(false);
-
-                // Actualizar personaje visible, nombre y posición del cuadro de diálogo/nombre
-                if (dialogue.character === 'sighttail') {
-                        this.sighttail.setVisible(true).setPosition(0.5 * this.centerX, 1.2 * this.centerY).setScale(0.8);
-                        this.rectDialogue.setScale(-0.8, 0.8); // Cuadro a la izquierda
-                        this.rectName.setPosition(this.centerX, 1.1 * this.centerY);
-                        this.nameText.setPosition(0.289 * this.centerX, 1.457 * this.centerY).setText("Sighttail");
-                        this.dialogueText.setPosition(0.4 * this.centerX, 1.605 * this.centerY); // Asegurarse que el texto también se mueve
-                } else if (dialogue.character === 'scentpaw') {
-                        this.scentpaw.setVisible(true).setPosition(1.45 * this.centerX, 1.2 * this.centerY).setScale(0.8);
-                        this.rectDialogue.setScale(0.8, 0.8); // Cuadro a la derecha
-                        this.rectName.setPosition(2.25 * this.centerX, 1.1 * this.centerY);
-                        this.nameText.setPosition(1.52 * this.centerX, 1.457 * this.centerY).setText("Scentpaw");
-                        this.dialogueText.setPosition(0.4 * this.centerX, 1.605 * this.centerY);
-                } else if (dialogue.character === 'cazador') {
-                        this.cazador.setVisible(true).setPosition(1.45 * this.centerX, 1.2 * this.centerY).setScale(0.8);
-                        this.rectDialogue.setScale(0.8, 0.8); // Cuadro a la derecha
-                        this.rectName.setPosition(2.25 * this.centerX, 1.1 * this.centerY);
-                        this.nameText.setPosition(1.52 * this.centerX, 1.457 * this.centerY).setText("Cazador");
-                        this.dialogueText.setPosition(0.4 * this.centerX, 1.605 * this.centerY);
+                if (this.currentDialogueIndex < 18 || this.currentDialogueIndex>=34) {
+                        if (dialogue.side === 'left') {
+                                this.rectDialogue.setScale(-0.8, 0.8);
+                                this.rectName.setPosition(this.centerX, 1.1 * this.centerY, "nameIm");
+                                this.nameText.setPosition(0.289 * this.centerX, 1.457 * this.centerY).setText("Sighttail");
+                        }
+                        else {
+                                this.scentpaw.setPosition(1.45 * this.centerX, 1.2 * this.centerY).setScale(0.8);
+                                this.rectDialogue.setScale(0.8);
+                                this.rectName.setPosition(2.25 * this.centerX, 1.1 * this.centerY, "nameIm");
+                                this.nameText.setPosition(1.52 * this.centerX, 1.457 * this.centerY).setText("Scentpaw");
+                        }
                 }
 
+                else if(this.currentDialogueIndex<34){
+                        
+                        if (dialogue.character === 'sighttail') {
+                                this.scentpaw.setVisible(false);
+                                this.sighttail.setVisible(true);
+                                this.rectDialogue.setScale(-0.8, 0.8);
+                                this.rectName.setPosition(this.centerX, 1.1 * this.centerY, "nameIm");
+                                this.nameText.setPosition(0.289 * this.centerX, 1.457 * this.centerY).setText("Sighttail");
+                        }
+                        else if(dialogue.character === 'scentpaw') {
+                                this.sighttail.setVisible(false);
+                                this.scentpaw.setVisible(true).setScale(-1,1);
+                                this.scentpaw.setPosition(0.7* this.centerX, 1.2 * this.centerY);
+                                this.rectDialogue.setScale(-0.8, 0.8);
+                                this.rectName.setPosition(this.centerX, 1.1 * this.centerY, "nameIm");
+                                this.nameText.setPosition(0.289 * this.centerX, 1.457 * this.centerY).setText("Scentpaw");
+                        }
+
+                        else if(dialogue.character === 'cazador') {
+                                if(this.primerDialCaz){
+                                        this.scentpaw.setVisible(false);
+                                        this.primerDialCaz = false;
+                                }
+                                this.cazador.setVisible(true);
+                                this.rectDialogue.setScale(0.8);
+                                this.rectName.setPosition(2.25 * this.centerX, 1.1 * this.centerY, "nameIm");
+                                this.nameText.setPosition(1.52 * this.centerX, 1.457 * this.centerY).setText("Cazador");
+                        }
+                }
                 this.dialogueText.setText(dialogue.text);
-                console.log(`Dialogue: ${this.currentDialogueIndex}/${this.endIndex - 1}`);
+                console.log(this.currentDialogueIndex);
+                console.log(this.endIndex);
         }
 
+        //Pasa a la siguiente posición de dialogo
         nextDialogue() {
                 this.currentDialogueIndex++;
 
+                //Si es mayor o igual que la final se acaba
                 if (this.currentDialogueIndex >= this.endIndex) {
                         this.endDialogue();
                         return;
                 }
-
+                //Si no se pasa al siguiente
                 if (this.currentDialogueIndex < this.dialogueData.length) {
                         this.updateDialogue();
                 }
         }
-
+        // para volver a activar la escena en la que se encontraba al acabar el dialogo
         endDialogue() {
-                console.log(`Terminando diálogo (Index ${this.currentDialogueIndex}). Reanudando escena: ${this.callingScene}`);
                 if (this.callingScene) {
-                        this.scene.stop(this.scene.key); // Detener ESTA DialogueScene
-                        this.scene.resume(this.callingScene); // Reanudar la escena que la llamó
-
-                        // Si se proporcionó un callback, llamarlo
-                        if (this.callbackOnEnd && typeof this.callbackOnEnd === 'function') {
-                                this.callbackOnEnd();
-                        }
+                        this.scene.stop();
+                        this.scene.resume(this.callingScene);
                 } else {
-                        console.error("No callingScene provided for DialogueScene to resume.");
+                        console.error("No callingScene provided");
                 }
         }
 }

@@ -49,7 +49,9 @@ export default class WebsSocketManger {
                         this.gameScene.startGame(
                             data.gameId,
                             data.playerId, // Esto es el ID de sesión del servidor
-                            data.playerKey                            
+                            data.playerKey,
+                            data.startX,    // <--- Pasar startX
+                            data.startY     // <--- Pasar startY
                         );
                         // Asegúrate de que el playerId y playerKey del manager ya están asignados al conectarse
                         // O actualízalos aquí si el servidor envía los "oficiales"
@@ -60,10 +62,13 @@ export default class WebsSocketManger {
                     case MSG_TYPES.ERROR: // 'e' para errores del servidor
                         console.error('Error del servidor: ', data.message);
                         break;
-                    case MSG_TYPES.DOOR_INTERACT_CONFIRM: // 'd' de door_interact_confirm: el servidor confirma la interacción de la puerta
+                    case MSG_TYPES.DOOR_INTERACTION_CONFIRMED: // Ahora sí, este 'd' se mapeará correctamente
                         console.log("Servidor confirma interacción con la puerta.");
-                        if (this.gameScene && this.gameScene.handleDoorInteractionConfirmed) {
-                            this.gameScene.handleDoorInteractionConfirmed(); // Llama al método de la escena
+                        // Llama al método de la escena que lanza el diálogo de la puerta (dialogue 1)
+                        if (this.gameScene && typeof this.gameScene.handleDoorInteractionConfirmed === 'function') {
+                            this.gameScene.handleDoorInteractionConfirmed();
+                        } else {
+                            console.warn("gameScene no disponible o handleDoorInteractionConfirmed no es una función.");
                         }
                         break;
                     case MSG_TYPES.AGUJERO_INTERACT_CONFIRM: // Añadir si el servidor confirma la interacción del agujero
@@ -71,6 +76,13 @@ export default class WebsSocketManger {
                         if (this.gameScene && this.gameScene.launchDialogueScene) {
                             // Asumo que el servidor podría enviar qué diálogo lanzar, por ejemplo data.dialogueIndex
                             this.gameScene.launchDialogueScene(data.dialogueIndex || 2); // Ejemplo: lanza el diálogo 2 por defecto
+                        }
+                        break;
+                    case MSG_TYPES.ABILITY_USE:
+                        if (this.scene.handleAbilityUse) {
+                            this.scene.handleAbilityUse(message.payload);
+                        } else {
+                            console.warn("La escena actual no tiene el método handleAbilityUse para el tipo de mensaje ABILITY_USE.");
                         }
                         break;
                     default:
@@ -133,12 +145,6 @@ export default class WebsSocketManger {
 
     // manejar actualización de la posición de un jugador
     handlePlayerUpdate(data) {
-        const currentTime = Date.now();
-        /*
-        if(currentTime - this.lastUpdateTime >= this.POSITION_UPDATE_INTERVAL){
-            const dx = Math.abs(this.player.x - )
-        }*/
-
         const { playerId, x, y, anim, flipX } = data;
 
         // Si el mensaje es de nuestro propio jugador, no hacemos nada porque ya lo manejamos localmente

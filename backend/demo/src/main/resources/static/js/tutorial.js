@@ -5,24 +5,21 @@ import WebsSocketManger from "./WebSocketManager.js"; // Asegúrate de que el no
 export default class TutorialScene extends Phaser.Scene {
     constructor() {
         super({ key: 'TutorialScene' });
-
         this.webSocketManager = null;
-        this.dialogueIntroLaunched = false;
         this.gameStarted = false;
         this.gameReadyPayload = null;
 
         this.gameId = null; // Asignar cuando el servidor lo envíe
+        this.myPlayerId = null;
         this.myPlayerKey = null;
 
         this.myPlayer = null; // El sprite del jugador que controlas localmente
         this.otherPlayer = null; // El sprite del otro jugador (controlado por el servidor)
-        this.myControls = null; // Los controles específicos para tu jugador
 
         // Propiedades para los objetos interactuables del tutorial
         this.door = null;
         this.hole = null;
 
-        // Objeto para almacenar el último estado enviado del jugador.
         // Esto se usa para evitar enviar mensajes de actualización si no hay cambios.
         this.lastSentPlayerPosition = { x: 0, y: 0 };
         this.lastUpdateTime = 0;
@@ -43,6 +40,11 @@ export default class TutorialScene extends Phaser.Scene {
         // Estado de los poderes inicialmente
         this.vistaDisp = false;
         this.olfatoDisp = false;
+
+        // Banderas para controlar si el efecto visual de un poder está activo
+        // Esto ayuda a evitar múltiples activaciones visuales y sincronización
+        this.isSighttailVisualEffectActive = false;
+        this.isScentpawVisualEffectActive = false;
     }
 
     preload() {
@@ -77,7 +79,7 @@ export default class TutorialScene extends Phaser.Scene {
         this.abilityKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
 
-        this.controlsManager = new ControlsManager(this);
+        this.controlsManager = new ControlsManager(this); //lo mismo se quita
 
         const centerX = this.scale.width / 2;
         const centerY = this.scale.height / 2;
@@ -126,6 +128,21 @@ export default class TutorialScene extends Phaser.Scene {
             .setVisible(false)
             .setImmovable(true); // **Añadido: inamovible hasta que la partida comience**
 
+
+        // Creamos unos arrays para meter las imagenes de las huellas y el humo
+        this.huellas = [];
+        this.humos = [];
+
+        // Crear áreas y objetos (colisiones del mundo)
+        const cripta = this.add.rectangle(0.085 * centerX, 0, centerX + 30, 0.95 * centerY, 0x000000, 0).setOrigin(0, 0);
+        this.physics.add.existing(cripta, true);
+
+        const cementerio = this.add.rectangle(1.6 * centerX, 0, 0.4 * centerX, 1.4 * centerY, 0x000000, 0).setOrigin(0, 0);
+        this.physics.add.existing(cementerio, true);
+
+
+        // Fondo del escenario
+        const escenario = this.add.image(centerX, centerY, "escenario");
 
         const worldWidthT = escenario.displayWidth;
         const worldHeightT = escenario.displayHeight;
@@ -182,6 +199,7 @@ export default class TutorialScene extends Phaser.Scene {
         this.capaV = this.add.circle(0.56 * centerX, 1.4 * centerY, 32, 0x000000, 0.5).setScrollFactor(0).setVisible(true);
         this.capaO = this.add.circle(0.56 * centerX, 1.25 * centerY, 32, 0x000000, 0.5).setScrollFactor(0).setVisible(true);
 
+
         // **IMPORTANTE: Los listeners de teclado se añaden ONCE y se manejan solo para tu myPlayer.**
         // La lógica de interacción con agujero ya no se duplica en `checkAgujeroInteraction`.
         this.input.keyboard.on('keydown-E', () => {
@@ -199,8 +217,6 @@ export default class TutorialScene extends Phaser.Scene {
         // **Crear animaciones para ambos personajes al inicio.**
         this.createAnimations('Sighttail');
         this.createAnimations('Scentpaw');
-
-
     }
 
     // Método llamado por WebSocketManager cuando el servidor indica que el juego ha comenzado
@@ -220,13 +236,12 @@ export default class TutorialScene extends Phaser.Scene {
         if (this.myPlayerKey === 'Sighttail') {
             this.myPlayer = this.sighttail;
             this.otherPlayer = this.scentpaw;
-            this.myControls = this.controlsManager.controls1;
+
         } else { // myPlayerKey === 'Scentpaw'
             this.myPlayer = this.scentpaw;
             this.otherPlayer = this.sighttail;
-            this.myControls = this.controlsManager.controls2; // Scentpaw uses controls2
-        }
 
+        }
         // Set initial idle animation for both players
         this.myPlayer.anims.play(`${this.myPlayerKey}-idleDown`, true);
         this.otherPlayer.anims.play(`${this.otherPlayer.texture.key}-idleDown`, true);
@@ -242,9 +257,10 @@ export default class TutorialScene extends Phaser.Scene {
         this.launchDialogueScene(0);
 
         console.log(`Partida ${this.gameId} iniciada. Eres ${this.myPlayerKey}`);
+
         // Hace visibles y activas las físicas para ambos jugadores
-        this.myPlayer.setVisible(true).setImmovable(false);
-        this.otherPlayer.setVisible(true).setImmovable(false);
+        this.myPlayer.setVisible(true).setImmovable(false).setDepth(1);
+        this.otherPlayer.setVisible(true).setImmovable(false).setDepth(1);
 
         // Asegura que el otro jugador no tenga velocidad por defecto
         this.otherPlayer.body.setVelocity(0, 0);
@@ -252,11 +268,15 @@ export default class TutorialScene extends Phaser.Scene {
 
 
         // Configuración de la puerta
+
         this.puerta = this.add.rectangle(0.5 * centerX, 0.55 * centerY, 0.2 * centerX, 0.45 * centerY, 0x000000, 0).setOrigin(0, 0);
         this.physics.add.existing(this.puerta, true);
         this.puertaInteractuable = false;
 
+
         this.physics.add.collider(this.myPlayer, this.puerta, () => this.handlePuertaCollision());
+
+        this.cameras.main.startFollow(this.myPlayer);
     }
 
     // Este método es llamado por el WebSocketManager cuando recibe un mensaje de actualización de otro jugador
@@ -341,16 +361,7 @@ export default class TutorialScene extends Phaser.Scene {
         }
 
         this.scene.pause();
-        this.scene.launch('DialogueScene', {
-            startIndex, endIndex, callingScene: this.scene.key,
-            onDialogueComplete: () => {
-                if (caseId === 0) {
-                    this.gameStarted = true;
-                    console.log("Dialogo inicial completo. Movimiento habilitado");
-                }
-                
-            }
-        });
+        this.scene.launch('DialogueScene', { startIndex, endIndex, callingScene: this.scene.key });
     }
 
     // Construye las animaciones de los personajes
@@ -366,103 +377,209 @@ export default class TutorialScene extends Phaser.Scene {
     }
 
     handlePowers() {
-        if (!this.gameStarted || !this.myPlayer) return;
+        if (!this.myPlayer) {
+            return;
+        }
+        let myPowerName = '';
 
-        if (this.abilityKey.isDown) {
-            if (this.myPlayerKey === 'Sighttail' && this.vistaDisp) {
-                console.log("Jugador Sighttail usó poder");
-                this.vistaDisp = false;
-                this.huellas.forEach(huella => { huella.setVisible(true); });
-                this.capaV.setVisible(true);
-                
-                this.webSocketManager.send(MSG_TYPES.ABILITY_USE, { playerKey: this.myPlayerKey, ability: 'vision' }); // Enviar al servidor
+        // Lógica para Sighttail (Visión)
+        // Usamos JustDown para activar solo una vez por pulsación
+        if (this.myPlayerKey === 'Sighttail' && this.vistaDisp && this.abilityKey.isDown) {
+            console.log("Jugador Sighttail usó poder: ACTIVAR");
+            this.vistaDisp = false; // El poder entra en cooldown (no disponible para re-uso)
+            this.huellas.forEach(huella => { huella.setVisible(true); });
 
-                this.time.delayedCall(this.durVista, () => {
-                    this.huellas.forEach(huella => { huella.setVisible(false); });
-                });
+            // La capa V se vuelve visible por la DURACIÓN del poder (indica efecto activo)
+            this.capaV.setVisible(true);
 
-                this.time.delayedCall(this.cargaVista, () => {
-                    this.vistaDisp = true;
-                    this.capaV.setVisible(false);
-                    console.log("Vista disponible");
-                });
-            }
-            
-            // Habilidad de Olfato (Scentpaw)
-            if (this.myPlayerKey === 'Scentpaw' && this.olfatoDisp) {
-                console.log("Jugador Scentpaw usó poder");
-                this.olfatoDisp = false;
-                this.humos.forEach(humo => { humo.setVisible(true); });
-                this.capaO.setVisible(true);
+            // Notificar al servidor que Sighttail ACTIVÓ su poder
+            this.webSocketManager.send(MSG_TYPES.ABILITY_USE, { playerKey: this.myPlayerKey, ability: 'vision', action: 'activate' });
 
-                this.webSocketManager.send(MSG_TYPES.ABILITY_USE, { playerKey: this.myPlayerKey, ability: 'olfato' }); // Enviar al servidor
+            // Timer para DESACTIVAR el efecto visual del poder y ocultar capaV
+            this.time.delayedCall(this.durVista, () => {
+                this.huellas.forEach(huella => { huella.setVisible(false); });
+                this.capaV.setVisible(false); // La capa V se oculta al finalizar la duración del efecto
 
-                this.time.delayedCall(this.durOlfato, () => {
-                    this.humos.forEach(humo => { humo.setVisible(false); });
-                });
+                // Notificar al servidor que Sighttail DESACTIVÓ su poder
+                this.webSocketManager.send(MSG_TYPES.ABILITY_USE, { playerKey: this.myPlayerKey, ability: 'vision', action: 'deactivate' });
+                console.log("Jugador Sighttail: Efecto de visión finalizado.");
+            });
 
-                this.time.delayedCall(this.cargaOlfato, () => {
-                    this.olfatoDisp = true;
-                    this.capaO.setVisible(false);
-                    console.log("Olfato disponible");
-                });
-            }
+            // Timer para que el poder esté disponible de nuevo (Cooldown)
+            this.time.delayedCall(this.cargaVista, () => {
+                this.vistaDisp = true; // El poder vuelve a estar disponible para uso
+                console.log("Vista disponible de nuevo.");
+            });
+        }
 
+        // Habilidad de Olfato (Scentpaw)
+        if (this.myPlayerKey === 'Scentpaw' && this.olfatoDisp && this.abilityKey.isDown) {
+            console.log("Jugador Scentpaw usó poder: ACTIVAR");
+            this.olfatoDisp = false; // El poder entra en cooldown
+            this.humos.forEach(humo => { humo.setVisible(true); });
+
+            // La capa O se vuelve visible por la DURACIÓN del poder
+            this.capaO.setVisible(true);
+
+            // Notificar al servidor que Scentpaw ACTIVÓ su poder
+            this.webSocketManager.send(MSG_TYPES.ABILITY_USE, { playerKey: this.myPlayerKey, ability: 'olfato', action: 'activate' });
+
+            // Timer para DESACTIVAR el efecto visual del poder y ocultar capaO
+            this.time.delayedCall(this.durOlfato, () => {
+                this.humos.forEach(humo => { humo.setVisible(false); });
+                this.capaO.setVisible(false); // La capa O se oculta al finalizar la duración del efecto
+
+                // Notificar al servidor que Scentpaw DESACTIVÓ su poder
+                this.webSocketManager.send(MSG_TYPES.ABILITY_USE, { playerKey: this.myPlayerKey, ability: 'olfato', action: 'deactivate' });
+                console.log("Jugador Scentpaw: Efecto de olfato finalizado.");
+            });
+
+            // Timer para que el poder esté disponible de nuevo (Cooldown)
+            this.time.delayedCall(this.cargaOlfato, () => {
+                this.olfatoDisp = true; // El poder vuelve a estar disponible para uso
+                console.log("Olfato disponible de nuevo.");
+            });
         }
     }
 
+    // Nuevo método para manejar el uso de habilidades del OTRO jugador (sincronización)
+    handleAbilityUse(payload) {
+        const { playerId, playerKey, ability, action } = payload;
+        console.log(`TutorialScene: Habilidad recibida del jugador ${playerId} (${playerKey}): ${ability}, acción: ${action}`);
+
+        // Si el mensaje es de nuestro propio jugador, lo ignoramos.
+        // Ya manejamos el efecto visual y el envío en handlePowers()
+        if (playerId === this.myPlayerId) {
+            return;
+        }
+
+        // Lógica para los poderes del OTRO jugador (activar/desactivar capa e indicadores)
+        if (action === 'activate') {
+            if (playerKey === 'Sighttail' && ability === 'vision') {
+                this.capaV.setVisible(true); // Activa capaV en mi pantalla
+                this.huellas.forEach(huella => { huella.setVisible(true); }); // Activa huellas también
+                console.log(`Soy ${this.myPlayerKey}: El otro jugador (Sighttail) activó Visión. Activando CapaV y huellas.`);
+            } else if (playerKey === 'Scentpaw' && ability === 'olfato') {
+                this.capaO.setVisible(true); // Activa capaO en mi pantalla
+                this.humos.forEach(humo => { humo.setVisible(true); }); // Activa humos también
+                console.log(`Soy ${this.myPlayerKey}: El otro jugador (Scentpaw) activó Olfato. Activando CapaO y humos.`);
+            }
+        } else if (action === 'deactivate') {
+            if (playerKey === 'Sighttail' && ability === 'vision') {
+                this.capaV.setVisible(false); // Desactiva capaV en mi pantalla
+                this.huellas.forEach(huella => { huella.setVisible(false); }); // Desactiva huellas también
+                console.log(`Soy ${this.myPlayerKey}: El otro jugador (Sighttail) desactivó Visión. Desactivando CapaV y huellas.`);
+            } else if (playerKey === 'Scentpaw' && ability === 'olfato') {
+                this.capaO.setVisible(false); // Desactiva capaO en mi pantalla
+                this.humos.forEach(humo => { humo.setVisible(false); }); // Desactiva humos también
+                console.log(`Soy ${this.myPlayerKey}: El otro jugador (Scentpaw) desactivó Olfato. Desactivando CapaO y humos.`);
+            }
+        }
+    }
+
+
+
     // Bucle principal de actualización del juego
     update(time, delta) {
+        // Only handle player movement and updates if myPlayer is initialized
+        if (this.myPlayer) {
+            this.handlePlayerMovement(); // Handles local player movement and animation
+            this.handlePositionUpdates(); // Handles sending position updates to the server
+            this.handlePowers(); // Handles player abilities
 
-        if (!this.gameStarted || !this.myPlayer) return;
-
-        this.handlePlayerMovement();
-        this.handlePositionUpdates();
-        this.handlePowers();
-        
-        // Centrar cámara entre los dos jugadores
-        // **Esto solo debe ocurrir si ambos jugadores (myPlayer y otherPlayer) han sido inicializados.**
-        if (this.myPlayer && this.otherPlayer) {
-            const centerjX = (this.myPlayer.x + this.otherPlayer.x) / 2;
-            const centerjY = (this.myPlayer.y + this.otherPlayer.y) / 2;
-            this.cameras.main.centerOn(centerjX, centerjY);
+            // Centrar cámara entre los dos jugadores
+         
+            /* la camara sigue al jugador
+            if (this.otherPlayer) {
+                const centerjX = (this.myPlayer.x + this.otherPlayer.x) / 2;
+                const centerjY = (this.myPlayer.y + this.otherPlayer.y) / 2;
+                this.cameras.main.centerOn(centerjX, centerjY);
+            } else {
+               
+                this.cameras.main.centerOn(this.myPlayer.x, this.myPlayer.y);
+            }*/
         } else {
-            // Si los jugadores aún no están inicializados (al inicio), centra en un punto fijo o solo en myPlayer si existe.
-            // Mantén la cámara centrada en el punto inicial del "esperando a otro jugador" o simplemente no muevas la cámara.
-            // Para este caso, ya que tienes un texto fijo, puedes dejarla centrada en el punto inicial.
+            // 
             const centerX = this.scale.width / 2;
             const centerY = this.scale.height / 2;
             this.cameras.main.centerOn(centerX, centerY);
         }
     }
 
-    handlePlayerMovement() {
-        const cursors = this.input.keyboard.createCursorsKeys();
+     handlePlayerMovement() {
+        if (!this.myPlayer || !this.myPlayer.body) {
+            return; // Exit the function if myPlayer or its body is not yet defined
+        }
+        const cursors = this.cursors;
         const speed = 100;
 
-        this.myPlayer.body.setVelocity(0);
+        let moving = false;
+        let currentAnimKey = this.myPlayer.anims.currentAnim ? this.myPlayer.anims.currentAnim.key : `${this.myPlayerKey}-idleDown`;
+
+        this.myPlayer.body.setVelocity(0); // Reset velocity each frame
 
         if (cursors.left.isDown) {
             this.myPlayer.body.setVelocityX(-speed);
+            
+            if (currentAnimKey !== `${this.myPlayerKey}-walk-left`) {
+                this.myPlayer.anims.play(`${this.myPlayerKey}-walk-left`, true);
+            }
+            moving = true;
         } else if (cursors.right.isDown) {
             this.myPlayer.body.setVelocityX(speed);
+            this.myPlayer.setFlipX(false); // No flip for right movement
+            if (currentAnimKey !== `${this.myPlayerKey}-walk-right`) {
+                this.myPlayer.anims.play(`${this.myPlayerKey}-walk-right`, true);
+            }
+            moving = true;
         }
 
         if (cursors.up.isDown) {
             this.myPlayer.body.setVelocityY(-speed);
+            // Don't change flipX for up/down movement, let horizontal movement dictate it
+            if (currentAnimKey !== `${this.myPlayerKey}-walk-up`) {
+                this.myPlayer.anims.play(`${this.myPlayerKey}-walk-up`, true);
+            }
+            moving = true;
         } else if (cursors.down.isDown) {
             this.myPlayer.body.setVelocityY(speed);
+            // Don't change flipX for up/down movement
+            if (currentAnimKey !== `${this.myPlayerKey}-walk-down`) {
+                this.myPlayer.anims.play(`${this.myPlayerKey}-walk-down`, true);
+            }
+            moving = true;
+        }
+
+        // If not moving, play idle animation based on last direction or default
+        if (!moving) {
+            // Ensure we only change to idle if a movement animation was playing
+            if (currentAnimKey.includes('walk')) {
+                let idleAnim = `${this.myPlayerKey}-idleDown`; // Default idle
+                if (currentAnimKey.includes('up')) idleAnim = `${this.myPlayerKey}-idleUp`;
+                else if (currentAnimKey.includes('down')) idleAnim = `${this.myPlayerKey}-idleDown`;
+                else if (currentAnimKey.includes('left')) idleAnim = `${this.myPlayerKey}-idleLeft`;
+                else if (currentAnimKey.includes('right')) idleAnim = `${this.myPlayerKey}-idleRight`;
+
+                if (currentAnimKey !== idleAnim) { // Only change if actually different
+                    this.myPlayer.anims.play(idleAnim, true);
+                }
+            } else if (!currentAnimKey) { // If no animation was set yet (e.g., very first frame)
+                 this.myPlayer.anims.play(`${this.myPlayerKey}-idleDown`, true);
+            }
         }
     }
 
     handlePositionUpdates() {
+        if (!this.myPlayer) {
+            return; // Exit the function if myPlayer is not yet defined
+        }
         const currentTime = Date.now();
         if (currentTime - this.lastUpdateTime >= this.POSITION_UPDATE_INTERVAL) {
-            const dx = Maths.abs(this.myPlayer.x - this.lastSentPlayerPosition.x);
-            const dy = Maths.abs(this.myPlayer.y - this.lastSentPlayerPosition.y);
+            const dx = Math.abs(this.myPlayer.x - this.lastSentPlayerPosition.x);
+            const dy = Math.abs(this.myPlayer.y - this.lastSentPlayerPosition.y);
 
             if (dx > this.POSITION_THRESHOLD || dy > this.POSITION_THRESHOLD) {
-                this.sendPosition();
+                this.sendPlayerState();
                 this.lastUpdateTime = currentTime;
                 this.lastSentPlayerPosition = { x: this.myPlayer.x, y: this.myPlayer.y };
             }
@@ -471,7 +588,7 @@ export default class TutorialScene extends Phaser.Scene {
     }
 
 
-    sendPlayerState(){
+    sendPlayerState() {
         this.webSocketManager.send(MSG_TYPES.PLAYER_UPDATE, {
             playerId: this.myPlayerId,
             x: Math.round(this.myPlayer.x),
@@ -479,5 +596,37 @@ export default class TutorialScene extends Phaser.Scene {
             anim: this.myPlayer.anims.currentAnim ? this.myPlayer.anims.currentAnim.key : `${this.myPlayerKey}-idleDown`,
             flipX: this.myPlayer.flipX
         });
+    }
+
+    applyPowerEffect(actingPlayerKey, abilityName, action){
+        let targetOverlay = null;
+        let cooldownDuration = 0;
+
+        if(abilityName === 'vista'){
+            targetOverlay = this.capaV;
+            cooldownDuration = this.cargaVista;
+        } else if (abilityName === 'olfato'){
+            targetOverlay = this.capaO;
+            cooldownDuration = this.cargaOlfato;
+        }
+
+        if(action === 'activate'){
+            if(targetOverlay.visible){
+                return;
+            }
+
+            targetOverlay.setVisible(true);
+            if(actingPlayerKey===this.myPlayer.playerKey){
+                this.webSocketManager.send(MSG_TYPES.ABILITY_USE, {
+                    playerKey: actingPlayerKey,
+                    ability: abilityName,
+                    action: 'activate'
+                });
+            }
+
+            this.time.delayedCall(cooldownDuration, () => {
+                targetOverlay.setVisible(false);
+            }, [], this);
+        }
     }
 }
